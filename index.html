@@ -4878,6 +4878,16 @@ var App = {
       this.render(); return;
     }
     if(e.target.id==="cpdfCmts"){ if(this.modal) this.modal.cmts=e.target.checked; return; }
+    if(e.target.classList && e.target.classList.contains("cpdf-ck")){
+      // remember manual checks/unchecks so a re-render (e.g. after Copy email report) keeps them
+      if(this.modal && this.modal.type==="critpdf"){
+        this.modal.sel=this.modal.sel||{};
+        this.modal.sel[e.target.getAttribute("data-nid")]=e.target.checked;
+        var stCk=el("cpdfStatus");
+        if(stCk && !this.modal.busy){ var selN=0, selM=this.modal.sel; Object.keys(selM).forEach(function(k){ if(selM[k]) selN++; }); stCk.textContent=selN+" selected"; }
+      }
+      return;
+    }
     if(e.target.id==="critAssign"){
       if(!this.modal || this.modal.type!=="critical" || !this.isManager()) return;
       var arm=this.rooms[this.modal.roomId]; if(!arm) return;
