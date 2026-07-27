@@ -3864,15 +3864,14 @@ var App = {
         var pc=((n.issuePhotos||[]).length)+((n.fixPhotos||[]).length);
         var camIcon='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-1px"><path d="M4 8h3.5l1.5-2h6l1.5 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>';
         var txt=n.text||''; if(txt.length>90) txt=txt.slice(0,88)+'…';
-        var meta=(n.byName?esc(n.byName):'')+(n.ts?(n.byName?' · ':'')+esc(relTime(n.ts)):'');
-        var asgn=n.assignedName?'<div class="kbc-assign"><span class="kbc-av">'+esc(initials(n.assignedName))+'</span>'+esc(n.assignedName)+'</div>':'<div class="kbc-assign unassigned">Unassigned</div>';
+        // room number → status tag → description → date reported → the rest
         out+='<div class="kb-card" data-nid="'+esc(n.id)+'" data-room="'+esc(it.roomId)+'">'+
           '<div class="kbc-top"><span class="kbc-room">'+esc(aS)+' '+esc(it.room)+'</span></div>'+
+          (n.stage?'<div class="kbc-stagechip" style="margin:0 0 3px">'+esc(n.stage)+'</div>':'')+
           '<div class="kbc-text">'+esc(txt)+'</div>'+
-          asgn+
-          (n.stage?'<div class="kbc-stagechip">'+esc(n.stage)+'</div>':'')+
-          '<div class="kbc-meta">'+meta+(pc?'<span class="kbc-ph">'+camIcon+pc+'</span>':'')+'</div>'+
-          (n.reply?'<div class="kbc-reply">Fix noted</div>':'')+
+          '<div class="kbc-meta">'+(n.ts?'Reported '+esc(relTime(n.ts)):'')+(n.byName?(n.ts?' · ':'')+esc(n.byName):'')+'</div>'+
+          (n.assignedName?'<div class="kbc-assign"><span class="kbc-av">'+esc(initials(n.assignedName))+'</span>'+esc(n.assignedName)+'</div>':'<div class="kbc-assign unassigned">Unassigned</div>')+
+          ((pc||n.reply)?'<div class="kbc-meta">'+(pc?'<span class="kbc-ph">'+camIcon+pc+'</span>':'')+(n.reply?'<span class="kbc-reply" style="margin-top:0">Fix noted</span>':'')+'</div>':'')+
           '</div>';
       });
       out+='</div></div>';
