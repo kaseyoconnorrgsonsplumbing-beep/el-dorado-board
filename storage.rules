@@ -1,0 +1,13 @@
+rules_version = '2';
+// Room photos for the El Dorado board live under eldorado/<roomId>/...
+// Open read/write on that path only (no login in the app). Tighten before
+// sharing the URL widely.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /eldorado/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource.size < 20 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

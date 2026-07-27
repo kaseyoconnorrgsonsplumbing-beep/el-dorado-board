@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>El Dorado — How to Create Your Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1b2733; --steel:#3d4854; --accent:#2e7d4f; --accent-ink:#fff;
+  --bg:#f4f5f6; --ink:#14181c; --muted:#5b6773; --line:#aeb6bd; --hairline:#dfe2e5;
+  --error:#c23b2e; --ok:#2e7d4f; --amber:#e8842c;
+  --radius:8px;
+  --shadow-btn:0 1.5px 3px rgba(20,24,28,.25);
+  --shadow-input:0 1px 1.5px rgba(20,24,28,.07);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);font-family:Barlow,sans-serif;color:var(--ink);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+.wrap{max-width:640px;margin:0 auto;padding:0 14px 40px}
+
+/* header */
+.top{background:var(--navy);color:#fff;padding:18px 16px 20px}
+.top .inner{max-width:640px;margin:0 auto}
+.top .kicker{font-family:'Barlow Semi Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8fa1b3}
+.top h1{font-family:'Barlow Semi Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;line-height:1.1;margin:3px 0 6px}
+.top p{margin:0;color:#c4ccd4;font-size:14px}
+
+/* section label */
+.section-label{font-family:'Barlow Semi Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--steel);border-bottom:1px solid var(--hairline);padding-bottom:5px;margin:26px 0 12px}
+
+/* intro card */
+.card{background:#fff;border:1px solid var(--hairline);border-radius:var(--radius);padding:14px 15px;box-shadow:var(--shadow-input);margin-top:14px}
+.card p{margin:0 0 8px}
+.card p:last-child{margin-bottom:0}
+
+/* numbered steps */
+.step{display:flex;gap:12px;background:#fff;border:1px solid var(--hairline);border-radius:var(--radius);padding:13px 14px;box-shadow:var(--shadow-input);margin-top:10px}
+.step .n{flex:none;width:30px;height:30px;border-radius:var(--radius);background:var(--navy);color:#fff;font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center}
+.step .body{flex:1;min-width:0}
+.step .head{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.02em;margin-bottom:3px}
+.step .body p{margin:0;color:var(--steel);font-size:14px}
+.step .body p+p{margin-top:6px}
+
+/* simulated buttons / fields referenced in steps */
+.tap{display:inline-block;background:var(--accent);color:var(--accent-ink);font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.03em;padding:2px 8px;border-radius:6px;box-shadow:var(--shadow-btn);white-space:nowrap}
+.tap.plain{background:#eef1f3;color:var(--steel);border:1px solid var(--line);box-shadow:none}
+.fieldname{font-weight:700;color:var(--ink)}
+
+/* callout */
+.callout{border:1px solid var(--hairline);border-left:4px solid var(--accent);background:#fff;border-radius:var(--radius);padding:12px 14px;margin-top:14px;box-shadow:var(--shadow-input)}
+.callout.warn{border-left-color:var(--amber)}
+.callout .ct{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
+.callout p{margin:0;font-size:14px;color:var(--steel)}
+
+/* link box */
+.linkbox{background:var(--navy);color:#fff;border-radius:var(--radius);padding:15px 16px;margin-top:16px;text-align:center}
+.linkbox .lb-kick{font-family:'Barlow Semi Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8fa1b3}
+.linkbox a{display:inline-block;margin-top:6px;color:#7fd6a3;font-weight:700;font-size:16px;word-break:break-all;text-decoration:none}
+.linkbox .lb-sub{color:#c4ccd4;font-size:13px;margin-top:8px}
+
+/* troubleshooting rows */
+.tr{background:#fff;border:1px solid var(--hairline);border-radius:var(--radius);padding:11px 14px;box-shadow:var(--shadow-input);margin-top:8px}
+.tr .q{font-weight:700;font-size:14px;color:var(--ink)}
+.tr .a{font-size:14px;color:var(--steel);margin-top:2px}
+
+.foot{text-align:center;color:var(--muted);font-size:12px;margin-top:26px;padding-top:14px;border-top:1px solid var(--hairline)}
+
+@media print{
+  body{background:#fff}
+  .step,.card,.tr,.callout{box-shadow:none}
+  .linkbox{background:#fff;color:#000;border:1px solid var(--line)}
+  .linkbox a{color:#000}
+  .top{background:#fff;color:#000;border-bottom:2px solid #000}
+  .top .kicker,.top p{color:#333}
+  .step .n{background:#000}
+}
+</style>
+</head>
+<body>
+<div class="top"><div class="inner">
+  <div class="kicker">R.G. &amp; Sons Plumbing · El Dorado</div>
+  <h1>Getting Started on the Room Board</h1>
+  <p>How to create your login and start checking off work — takes about a minute.</p>
+</div></div>
+
+<div class="wrap">
+
+  <div class="card">
+    <p>The El Dorado room board lets you see every room, check off the work you finish, and add photos and notes right from your phone. Everything you complete is stamped with your name.</p>
+    <p>Before you can check off work, you set up a quick login. You only do this once.</p>
+  </div>
+
+  <div class="section-label">Step 1 · Open the board</div>
+
+  <div class="step"><div class="n">1</div><div class="body">
+    <div class="head">Open the board on your phone</div>
+    <p>Either <span class="fieldname">scan the QR code sticker</span> on the front of a room — it opens that room automatically — or open the link the office sent you (it's at the bottom of this sheet). Add it to your home screen if you want it handy.</p>
+  </div></div>
+
+  <div class="section-label">Step 2 · Create your login</div>
+
+  <div class="step"><div class="n">2</div><div class="body">
+    <div class="head">Tap Log in</div>
+    <p>Tap <span class="tap">Log in</span> in the top-right corner. If you opened a room, you can also tap the <span class="tap">Log in</span> button on the "viewing as a guest" bar.</p>
+  </div></div>
+
+  <div class="step"><div class="n">3</div><div class="body">
+    <div class="head">Tap "Create your login"</div>
+    <p>On the <span class="fieldname">Sign in</span> screen, look under <span class="fieldname">"New to the crew?"</span> and tap <span class="tap plain">Create your login</span>. (The top box is only for people who already made a login.)</p>
+  </div></div>
+
+  <div class="step"><div class="n">4</div><div class="body">
+    <div class="head">Fill in your details</div>
+    <p>Enter:</p>
+    <p>&bull; <span class="fieldname">Your name</span> (first and last)<br>
+       &bull; <span class="fieldname">Company</span> (e.g. R.G. &amp; Sons, or your sub)<br>
+       &bull; <span class="fieldname">Create a password</span> (at least 4 characters)</p>
+    <p>Tap <span class="tap plain">Show</span> next to the password to see what you typed so you don't mistype it. It's totally fine to use the same password as a coworker.</p>
+  </div></div>
+
+  <div class="step"><div class="n">5</div><div class="body">
+    <div class="head">Tap Create login &amp; start</div>
+    <p>Tap <span class="tap">Create login &amp; start</span>. You'll see a <span class="fieldname">"You're in"</span> message — and that's it.</p>
+  </div></div>
+
+  <div class="callout">
+    <div class="ct">You can start working immediately</div>
+    <p>You don't have to wait for approval. As soon as you request access you can check off tasks, add photos, and leave notes — everything saves and is credited to you. The office confirms your login shortly after; nothing you do in the meantime is lost.</p>
+  </div>
+
+  <div class="section-label">After that — every day</div>
+
+  <div class="card">
+    <p>Next time you open the board, just tap <span class="tap">Log in</span>, enter <span class="fieldname">your password</span>, and tap <span class="tap">Sign in</span>. You stay logged in until you log out, so most days you won't even need to.</p>
+    <p>Every box you check and every photo you add shows your name, so the office always knows who did what.</p>
+  </div>
+
+  <div class="section-label">If something doesn't work</div>
+
+  <div class="tr"><div class="q">It asks "Who's signing in?"</div>
+    <div class="a">That just means a coworker uses the same password as you. Tap your name from the list and you're in.</div></div>
+
+  <div class="tr"><div class="q">"We didn't find that password"</div>
+    <div class="a">Double-check what you typed (tap Show to see it). If you've never made a login, tap "Create your login" instead.</div></div>
+
+  <div class="tr"><div class="q">I forgot my password</div>
+    <div class="a">The office can look it up or reset it for you from the Config screen — just ask.</div></div>
+
+  <div class="tr"><div class="q">The board says "Local only" or won't load</div>
+    <div class="a">Check your signal. The app keeps working offline and syncs when you're back in range, so keep going — your work is saved on your phone in the meantime.</div></div>
+
+  <div class="linkbox">
+    <div class="lb-kick">Open the board here</div>
+    <a href="https://rgeldorado.netlify.app/">rgeldorado.netlify.app</a>
+    <div class="lb-sub">Or scan the QR sticker on any room door.</div>
+  </div>
+
+  <div class="callout" style="border-left-color:var(--navy);text-align:center">
+    <div class="ct">Need a hand? Call or text the office</div>
+    <p style="font-size:16px;color:var(--ink);font-weight:700;margin-top:2px">Kasey O'Connor</p>
+    <p style="margin-top:2px"><a href="tel:+15203000483" style="color:var(--accent);font-weight:800;font-size:20px;text-decoration:none">520-300-0483</a></p>
+    <p style="margin-top:4px">Tap the number to call, or text anytime.</p>
+  </div>
+
+  <div class="foot">
+    R.G. &amp; Sons Plumbing · El Dorado Hospital
+  </div>
+
+</div>
+</body>
+</html>

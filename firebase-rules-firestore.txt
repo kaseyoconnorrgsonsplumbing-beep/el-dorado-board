@@ -1,0 +1,38 @@
+// ============================================================
+// PASTE THIS whole block into:
+//   Firebase console  →  Firestore Database  →  Rules tab
+//   (replace everything in the box, then click Publish)
+//
+// It keeps your existing "tickets" rules AND adds the three
+// El Dorado collections. Nothing else is opened up.
+// ============================================================
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Existing: Water Heater Field Helper tickets ---
+    match /tickets/{ticketId} {
+      allow read, write: if true;
+    }
+
+    // --- El Dorado room-progress board ---
+    match /eldorado_config/{doc} {
+      allow read, write: if true;
+    }
+    match /eldorado_projects/{project} {
+      allow read, write: if true;
+    }
+    match /eldorado_rooms/{room} {
+      allow read, write: if true;
+    }
+    match /eldorado_users/{user} {
+      allow read, write: if true;
+    }
+    match /eldorado_log/{entry} {
+      allow read, write: if true;
+    }
+    match /eldorado_materials/{req} {
+      allow read, write: if true;
+    }
+  }
+}

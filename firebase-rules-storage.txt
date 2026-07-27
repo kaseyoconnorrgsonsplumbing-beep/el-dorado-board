@@ -1,0 +1,27 @@
+// ============================================================
+// PASTE THIS whole block into:
+//   Firebase console  →  Storage  →  Rules tab
+//   (replace everything in the box, then click Publish)
+//
+// It keeps your existing ticket-photo rules AND adds the
+// El Dorado room-photo folder. Both limit uploads to images.
+// ============================================================
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // --- Existing: field size-up photos ---
+    match /tickets/{ticketId}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 12 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // --- El Dorado room photos: eldorado/<roomId>/<file> ---
+    match /eldorado/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource.size < 20 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
