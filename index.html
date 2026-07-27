@@ -441,6 +441,12 @@ button.u-pin:active{color:var(--accent)}
 .crit-item.done{border-color:var(--hairline);border-left-color:var(--ok);opacity:.75}
 .crit-item.done .crit-flag{background:var(--ok)}
 .crit-stage{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--amber);border-radius:5px;padding:2px 7px}
+.crit-box{border:2px solid;border-radius:10px;padding:10px 10px 12px;margin-top:12px;text-align:left}
+.crit-box.issue{border-color:var(--error);background:#fffbfb}
+.crit-box.fix{border-color:var(--ok);background:#fafdfb}
+.crit-box>.section-label:first-child{margin-top:0}
+.crit-arrow{display:flex;justify-content:center;margin:8px 0 -2px;line-height:0}
+.crit-arrow svg{filter:drop-shadow(0 1px 1.5px rgba(20,40,30,.25))}
 .crit-manage{margin-top:8px}
 .note .crit-tag{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--error);border-radius:4px;padding:1px 5px;margin-right:5px}
 .note .crit-tag.done{background:var(--ok)}
@@ -4311,7 +4317,8 @@ var App = {
         '<div class="crit-top" style="justify-content:center;flex-wrap:wrap"><span class="crit-flag">Critical</span><span class="crit-room">'+esc(this.areaS())+' '+esc(croom.number||"")+'</span>'+stageTag+'</div>'+
         '<button class="btn btn-sm btn-block" style="margin-top:8px" data-action="openreport" data-room="'+esc(croom.id)+'" data-nid="'+esc(cn.id)+'">View full report / print</button>'+
         cmsg+
-        // ---- THE ISSUE: description + photos of the item ----
+        // ---- THE ISSUE (red box): description + photos of the item ----
+        '<div class="crit-box issue">'+
         '<div class="section-label" style="color:var(--error);border-color:#f0c9c4">The issue</div>'+
         '<div class="crit-text">'+esc(cn.text||"")+'</div>'+
         '<div class="crit-by">Reported by '+(cn.byName?esc(cn.byName)+(cn.byCompany?" ("+esc(cn.byCompany)+")":""):"—")+(cn.when?" · "+esc(cn.when):"")+'</div>'+
@@ -4322,13 +4329,18 @@ var App = {
         '<label class="photo-slot" style="display:block;margin-top:8px"><input type="file" accept="image/*" capture="environment" style="display:none" id="critIssuePhoto" multiple>&#9673; Add photo of the issue</label>'+
         '<div id="critIssueStatus" class="small muted" style="margin-top:4px"></div>'+critPhotos(cn.issuePhotos,"issue")+
         locSection+
-        // ---- THE FIX: what they did + after photos ----
+        '</div>'+
+        // ---- arrow: issue flows into the fix ----
+        '<div class="crit-arrow"><svg viewBox="0 0 26 24" width="26" height="22" aria-hidden="true"><path d="M9 2h8v9h6L13 22 3 11h6z" fill="#2e7d4f" stroke="#2e7d4f" stroke-width="2.5" stroke-linejoin="round"/></svg></div>'+
+        // ---- THE FIX (green box): what they did + after photos ----
+        '<div class="crit-box fix">'+
         '<div class="section-label" style="color:var(--ok);border-color:#c9dcd0">The fix</div>'+
         '<div class="field"><label class="lbl">What did you do to fix it?</label><textarea class="in" id="critReply" placeholder="e.g. Replaced the backflow preventer and re-tested — no leaks">'+esc((m.f&&m.f.fixDraft!=null)?m.f.fixDraft:(cn.reply||""))+'</textarea></div>'+
         (cn.replyBy?'<div class="crit-by" style="margin-top:-2px">Last updated by '+esc(cn.replyBy)+(cn.replyWhen?" · "+esc(cn.replyWhen):"")+'</div>':'')+
         '<label class="photo-slot" style="display:block;margin-top:6px"><input type="file" accept="image/*" capture="environment" style="display:none" id="critFixPhoto" multiple>&#9673; Add photo of the fix (after)</label>'+
         '<div id="critFixStatus" class="small muted" style="margin-top:4px"></div>'+critPhotos(cn.fixPhotos,"fix")+
         '<button class="cmt-link" style="margin-top:6px" data-action="cmtfix">&#8618; Comment on the fix</button>'+
+        '</div>'+
         cmtSection+
         '<button class="btn btn-primary btn-block" style="margin-top:12px" data-action="resolvecrit">Fixed — mark resolved</button>'+
         (cLane!=="inprogress"?'<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="critprogress">Move to In progress</button>':'')+
