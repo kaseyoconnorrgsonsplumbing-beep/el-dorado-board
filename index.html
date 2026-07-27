@@ -445,23 +445,24 @@ button.u-pin:active{color:var(--accent)}
 .note .crit-tag{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--error);border-radius:4px;padding:1px 5px;margin-right:5px}
 .note .crit-tag.done{background:var(--ok)}
 /* critical kanban board */
-.kb-board{display:flex;gap:6px;margin-top:2px;align-items:flex-start}
-.kb-col{flex:1 1 0;min-width:0;background:#eef0f2;border:1px solid var(--hairline);border-radius:var(--radius);padding:6px;display:flex;flex-direction:column}
+.kb-board{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.kb-col{min-width:0;background:#eef0f2;border:1px solid var(--hairline);border-radius:var(--radius);padding:6px;display:flex;flex-direction:column}
 .kb-col.drop-hot{outline:2px solid var(--accent);outline-offset:-2px;background:#e6efe9}
 .kb-head{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:1px 2px 6px}
 .kb-title{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.02em;line-height:1.1}
 .kb-count{flex:none;background:#fff;border:1px solid var(--hairline);border-radius:10px;font-size:10px;font-weight:700;color:var(--muted);padding:0 6px;min-width:18px;text-align:center}
 .lane-new .kb-title{color:var(--error)} .lane-prog .kb-title{color:var(--amber)} .lane-done .kb-title{color:var(--steel)}
-.kb-cards{display:flex;flex-direction:column;gap:6px;min-height:56px;flex:1}
-.kb-empty{border:1px dashed #c2c9cf;border-radius:6px;color:var(--muted);font-size:9.5px;text-align:center;padding:12px 3px}
-.kb-card{background:#fff;border:1px solid var(--hairline);border-left:3px solid var(--error);border-radius:6px;padding:7px 8px;box-shadow:var(--shadow-input);touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
+.kb-cards{display:grid;grid-template-columns:1fr 1fr;gap:6px;min-height:44px;align-items:start}
+.kb-empty{border:1px dashed #c2c9cf;border-radius:6px;color:var(--muted);font-size:9.5px;text-align:center;padding:12px 3px;grid-column:1/-1}
+.kb-card{background:#fff;border:1px solid var(--hairline);border-left:3px solid var(--error);border-radius:6px;padding:5px 6px;box-shadow:var(--shadow-input);touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none;min-width:0}
+.kbc-stagechip{display:inline-block;margin-top:4px;font-size:8.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#1b2733;background:#e7edf3;border:1px solid #cfdae4;border-radius:8px;padding:1px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lane-prog .kb-card{border-left-color:var(--amber)} .lane-done .kb-card{border-left-color:var(--steel)}
 .kb-card.kb-ghost{opacity:.32}
-.kbc-top{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:3px}
-.kbc-room{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:12px;color:var(--ink);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbc-top{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px}
+.kbc-room{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--ink);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kbc-ph{flex:none;display:inline-flex;align-items:center;gap:1px;font-size:9px;font-weight:700;color:var(--steel);background:var(--bg);border:1px solid var(--hairline);border-radius:8px;padding:0 4px;white-space:nowrap}
-.kbc-text{font-size:11px;line-height:1.3;color:var(--steel);word-break:break-word}
-.kbc-meta{font-size:9px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.kbc-text{font-size:10.5px;line-height:1.28;color:var(--steel);word-break:break-word}
+.kbc-meta{font-size:8.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .kbc-reply{font-size:9px;color:var(--accent);font-weight:700;margin-top:3px}
 .kbc-assign{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:10px;font-weight:700;color:var(--steel);background:var(--bg);border:1px solid var(--hairline);border-radius:10px;padding:1px 7px 1px 2px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .kbc-assign .kbc-av{flex:none;width:16px;height:16px;border-radius:50%;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;font-family:'Barlow Semi Condensed',sans-serif}
@@ -936,6 +937,7 @@ function ymdD(ymd){ if(!ymd) return null; try{ var d=new Date(ymd+"T12:00:00"); 
 function fmtMD(d){ if(!d) return ""; return (d.getMonth()+1)+"/"+d.getDate(); }
 /* fixed categorical palette for per-person charts (validated for CVD + contrast on white) */
 var CHART_COLS=["#2e7d4f","#3579c0","#b8690a","#8a63b8","#c23b2e"], CHART_OTHER="#8b97a3";
+var CRIT_STAGES=["Waiting on facility","Waiting on parts","Parts ordered","Need to schedule","Scheduled"];
 /* a completion value may be legacy `true` or an object {by,name,company,date,ts} */
 function doneMeta(v){ if(!v) return null; if(v===true) return {}; return v; }
 function initials(name){ if(!name) return "?"; var p=String(name).trim().split(/\s+/); return (p[0][0]||"").toUpperCase()+((p[1]&&p[1][0])||"").toUpperCase(); }
@@ -1629,7 +1631,7 @@ var App = {
       byRoom[rm].forEach(function(it){
         var n=it.note;
         h+='<tr><td style="'+CELLS+'font-weight:bold;white-space:nowrap;width:92px">'+esc(aS)+' '+esc(rm)+'</td>'+
-           '<td style="'+CELLS+'font-weight:bold;white-space:nowrap;width:92px">'+sumLab[critLane(n)]+'</td>'+
+           '<td style="'+CELLS+'font-weight:bold;white-space:nowrap;width:92px">'+sumLab[critLane(n)]+(n.stage?'<br><span style="font-weight:normal;font-size:12px;color:#5b6773">'+esc(n.stage)+'</span>':'')+'</td>'+
            '<td style="'+CELLS+'">'+esc(n.text||"")+(n.assignedName?' <span style="color:#5b6773;font-size:12px">&mdash; '+esc(n.assignedName)+'</span>':'')+'</td></tr>';
       });
     });
@@ -1638,7 +1640,7 @@ var App = {
     items.forEach(function(it){
       var n=it.note;
       h+='<div style="margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #dfe2e5">';
-      h+='<div style="margin-bottom:3px">'+chip(critLane(n))+' <span style="font-size:16px;font-weight:bold">&nbsp;'+esc(aS)+' '+esc(it.room)+'</span>'+(n.assignedName?' <span style="color:#5b6773;font-size:12px">&middot; Assigned: '+esc(n.assignedName)+'</span>':'')+'</div>';
+      h+='<div style="margin-bottom:3px">'+chip(critLane(n))+' <span style="font-size:16px;font-weight:bold">&nbsp;'+esc(aS)+' '+esc(it.room)+'</span>'+(n.stage?' <span style="color:#3579c0;font-size:12px;font-weight:bold">'+esc(n.stage)+'</span>':'')+(n.assignedName?' <span style="color:#5b6773;font-size:12px">&middot; Assigned: '+esc(n.assignedName)+'</span>':'')+'</div>';
       h+='<div>'+esc(n.text||"")+'</div>';
       h+='<div style="color:#8b97a3;font-size:12px;margin-top:2px">Reported by '+esc(n.byName||"—")+(n.when?' &middot; '+esc(n.when):'')+'</div>';
       var phsE=(n.issuePhotos||[]).slice(0,6);
@@ -1666,7 +1668,7 @@ var App = {
     // plain-text fallback
     var t=[job+" — Critical items", dateS+" · "+items.length+" issue"+(items.length===1?"":"s")+(cparts.length?" ("+cparts.join(", ")+")":""), "", "SUMMARY"];
     rOrder.forEach(function(rm){
-      byRoom[rm].forEach(function(it){ t.push(aS+" "+rm+" | "+sumLab[critLane(it.note)]+" | "+(it.note.text||"")+(it.note.assignedName?" — "+it.note.assignedName:"")); });
+      byRoom[rm].forEach(function(it){ t.push(aS+" "+rm+" | "+sumLab[critLane(it.note)]+(it.note.stage?" ("+it.note.stage+")":"")+" | "+(it.note.text||"")+(it.note.assignedName?" — "+it.note.assignedName:"")); });
     });
     t.push("","DETAILS");
     items.forEach(function(it){
@@ -1974,6 +1976,14 @@ var App = {
       '<div class="section-label" style="margin-top:12px">Other / equipment</div>'+
       '<div class="small muted" style="margin:2px 0 4px">No quantity needed — tools, a dumpster, trash cans, rentals&hellip;</div>'+
       '<textarea class="in" id="matOther" placeholder="e.g. 30yd dumpster swap, 2 more trash cans, core drill for Friday">'+esc(other||"")+'</textarea>';
+  },
+  /* <option> list for the critical progress tag (managers only) */
+  _stageOptions:function(cur){
+    var list=CRIT_STAGES.slice();
+    if(cur && list.indexOf(cur)===-1) list.push(cur);
+    return '<option value="">&mdash; no tag &mdash;</option>'+
+      list.map(function(s){ return '<option value="'+esc(s)+'"'+(s===cur?' selected':'')+'>'+esc(s)+'</option>'; }).join('')+
+      '<option value="__custom">Custom&hellip;</option>';
   },
   /* <option> list for assigning a critical item to a person (managers only) */
   _assignOptions:function(selId){
@@ -3801,6 +3811,7 @@ var App = {
           '<div class="kbc-top"><span class="kbc-room">'+esc(aS)+' '+esc(it.room)+'</span></div>'+
           '<div class="kbc-text">'+esc(txt)+'</div>'+
           asgn+
+          (n.stage?'<div class="kbc-stagechip">'+esc(n.stage)+'</div>':'')+
           '<div class="kbc-meta">'+meta+(pc?'<span class="kbc-ph">'+camIcon+pc+'</span>':'')+'</div>'+
           (n.reply?'<div class="kbc-reply">Fix noted</div>':'')+
           '</div>';
@@ -3824,6 +3835,7 @@ var App = {
         out+='<div class="ps-note" style="border-left:4px solid '+laneMeta[lane].col+';padding-left:10px">'+
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">'+
             '<span class="ps-tag">'+esc(aS)+' '+esc(it.room)+'</span>'+(n.taskName?'<span class="ps-tag">'+esc(n.taskName)+'</span>':'')+
+            (n.stage?'<span class="ps-tag" style="background:#e3ecf6;color:#1c4f86">'+esc(n.stage)+'</span>':'')+
             (n.assignedName?'<span class="ps-tag" style="background:#e7edf3;color:var(--navy)">Assigned: '+esc(n.assignedName)+'</span>':'')+
             '<span class="ps-by" style="margin-left:auto">'+esc(n.byName||'')+(n.when?' &middot; '+esc(n.when):'')+'</span></div>'+
           '<div style="font-size:13px">'+esc(n.text)+'</div>'+
@@ -4178,6 +4190,7 @@ var App = {
       var cmsg=m.msg?'<div class="msg '+m.msg.t+'" style="margin-top:8px">'+esc(m.msg.m)+'</div>':'';
       var cLane=critLane(cn);
       var stageTag=cLane==="inprogress"?'<span class="crit-stage">In progress</span>':(cLane==="done"?'<span class="crit-stage" style="background:var(--ok)">Resolved</span>':'');
+      if(cn.stage) stageTag+=' <span class="crit-stage" style="background:#3579c0">'+esc(cn.stage)+'</span>';
       var locSection='';
       if(this.drawingsList().length){
         if(cn.loc && this.drawingById(cn.loc.drawingId)){
@@ -4245,8 +4258,9 @@ var App = {
         '<div class="crit-text">'+esc(cn.text||"")+'</div>'+
         '<div class="crit-by">Reported by '+(cn.byName?esc(cn.byName)+(cn.byCompany?" ("+esc(cn.byCompany)+")":""):"—")+(cn.when?" · "+esc(cn.when):"")+'</div>'+
         (this.isManager()
-          ? '<div class="field" style="margin-top:8px"><label class="lbl">Assigned to</label><select class="in" id="critAssign">'+this._assignOptions(cn.assignedId||"")+'</select></div>'
-          : (cn.assignedName?'<div class="crit-by" style="margin-top:6px">Assigned to <b>'+esc(cn.assignedName)+'</b></div>':''))+
+          ? '<div class="row-2" style="margin-top:8px"><div class="field"><label class="lbl">Assigned to</label><select class="in" id="critAssign">'+this._assignOptions(cn.assignedId||"")+'</select></div>'+
+            '<div class="field"><label class="lbl">Progress tag</label><select class="in" id="critStage">'+this._stageOptions(cn.stage||"")+'</select></div></div>'
+          : ((cn.assignedName||cn.stage)?'<div class="crit-by" style="margin-top:6px">'+(cn.assignedName?'Assigned to <b>'+esc(cn.assignedName)+'</b>':'')+(cn.stage?(cn.assignedName?' &middot; ':'')+'Progress: <b>'+esc(cn.stage)+'</b>':'')+'</div>':''))+
         '<label class="photo-slot" style="display:block;margin-top:8px"><input type="file" accept="image/*" capture="environment" style="display:none" id="critIssuePhoto" multiple>&#9673; Add photo of the issue</label>'+
         '<div id="critIssueStatus" class="small muted" style="margin-top:4px"></div>'+critPhotos(cn.issuePhotos,"issue")+
         locSection+
@@ -5034,6 +5048,18 @@ var App = {
         if(stCk && !this.modal.busy){ var selN=0, selM=this.modal.sel; Object.keys(selM).forEach(function(k){ if(selM[k]) selN++; }); stCk.textContent=selN+" selected"; }
       }
       return;
+    }
+    if(e.target.id==="critStage"){
+      if(!this.modal || this.modal.type!=="critical" || !this.isManager()) return;
+      var srm=this.rooms[this.modal.roomId]; if(!srm) return;
+      var snS=(srm.notes||[]).filter(function(x){return x.id===App.modal.noteId;})[0]; if(!snS) return;
+      var stV=e.target.value;
+      if(stV==="__custom"){ var cust=prompt("Custom progress tag:", snS.stage||""); if(cust===null){ this.render(); return; } stV=cust.trim(); }
+      snS.stage=stV;
+      Store.saveRoom(srm);
+      this.logEvent("crit_stage", stV?('Tagged a critical "'+stV+'"'):"Cleared a critical progress tag", this.areaS()+" "+srm.number);
+      this.toast(stV?("Tagged: "+stV):"Tag cleared");
+      this._critPreserve(); this.render(); return;
     }
     if(e.target.id==="critAssign"){
       if(!this.modal || this.modal.type!=="critical" || !this.isManager()) return;
