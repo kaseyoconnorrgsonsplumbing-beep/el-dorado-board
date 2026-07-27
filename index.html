@@ -163,6 +163,11 @@ body.scrolled .summary.stick .stat-row{max-height:0;margin-top:0}
 .sortchips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}
 .sc-btn{border:1px solid var(--hairline);background:#fff;border-radius:99px;padding:5px 11px;font:inherit;font-size:12px;font-weight:700;color:#5b6773;cursor:pointer}
 .sc-btn.on{background:#1b2733;border-color:#1b2733;color:#fff}
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0 2px}
+.stat-card{background:#fff;border:1px solid var(--hairline);border-radius:var(--radius);padding:9px 11px;box-shadow:var(--shadow-input)}
+.stat-k{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8b97a3}
+.stat-v{font-family:'Barlow Semi Condensed',sans-serif;font-size:21px;font-weight:800;color:#14181c;margin-top:1px;line-height:1.1}
+.stat-s{font-size:11px;color:#5b6773;margin-top:2px}
 .dl-card{background:#fff;border:1px solid var(--hairline);border-radius:var(--radius);padding:10px;margin-top:6px}
 .dl-row{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid #f1f2f4;font-size:13px}
 .dl-row:first-child{border-top:none}
@@ -2296,7 +2301,7 @@ var App = {
     return s;
   },
   /* Gantt-style forecast calendar: one row per task, done vs forecast to est. finish, with deadlines */
-  _chartGantt:function(st){
+  _chartGantt:function(st, zoom){
     var tpl=this.template(), rooms=this.roomList(), DAY=86400000;
     var today=new Date(); today.setHours(12,0,0,0);
     function addD(dt,n){ return new Date(dt.getTime()+n*DAY); }
@@ -2317,31 +2322,57 @@ var App = {
       rows.push(row);
     });
     if(!rows.length) return "";
-    return this._ganttSvg(rows,{x0:92, aria:"Task schedule forecast"});
+    return this._ganttSvg(rows,{x0:92, aria:"Task schedule forecast", zoom:zoom});
   },
-  /* shared gantt renderer: time window, per-day dotted grid, weekend shading, today line, bars + deadline ticks */
+  /* Week / 2 weeks / Month / Full chips for a gantt chart */
+  _zoomChips:function(chart, cur){
+    var opts=[["week","Week"],["2week","2 weeks"],["month","Month"],["auto","Full"]];
+    return '<div class="sortchips">'+opts.map(function(o){
+      return '<button class="sc-btn'+(cur===o[0]?' on':'')+'" data-action="gzoom" data-chart="'+chart+'" data-z="'+o[0]+'">'+o[1]+'</button>';
+    }).join('')+'</div>';
+  },
+  /* shared gantt renderer: zoomable time window, per-day dotted grid, weekend shading, today line, bars + deadline ticks */
   _ganttSvg:function(rows, opts){
     var DAY=86400000; var today=new Date(); today.setHours(12,0,0,0);
     function addD(dt,n){ return new Date(dt.getTime()+n*DAY); }
+    var zoom=(opts&&opts.zoom)||"auto";
     var minT=null, maxT=null;
-    rows.forEach(function(r){ [r.a,r.b,r.fin,r.dl].forEach(function(x){ if(!x) return; if(!minT||x<minT)minT=x; if(!maxT||x>maxT)maxT=x; }); });
-    var lo=addD(today,-21); if(minT&&minT<lo) minT=lo;
-    var cap=addD(today,56);
-    rows.forEach(function(r){ if(r.fin&&r.fin>cap){ r.over=true; r.finRaw=r.fin; r.fin=cap; } if(r.dl&&r.dl>cap){ r.dlOff=true; } });
-    if(maxT>cap) maxT=cap;
-    if(!minT||minT>today) minT=addD(today,-3);
-    minT=addD(minT,-1); maxT=addD(maxT,3);
+    if(zoom==="week"){ minT=addD(today,-1); maxT=addD(today,7); }
+    else if(zoom==="2week"){ minT=addD(today,-2); maxT=addD(today,13); }
+    else if(zoom==="month"){ minT=addD(today,-5); maxT=addD(today,28); }
+    else {
+      rows.forEach(function(r){ [r.a,r.b,r.fin,r.dl].forEach(function(x){ if(!x) return; if(!minT||x<minT)minT=x; if(!maxT||x>maxT)maxT=x; }); });
+      var lo=addD(today,-21); if(minT&&minT<lo) minT=lo;
+      var capA=addD(today,56); if(maxT&&maxT>capA) maxT=capA;
+      if(!minT||minT>today) minT=addD(today,-3);
+      if(!maxT||maxT<addD(today,7)) maxT=addD(today,7);
+      minT=addD(minT,-1); maxT=addD(maxT,3);
+    }
+    var cap=maxT;
+    rows.forEach(function(r){
+      r.over=false; r.dlOff=false;
+      if(r.fin&&r.fin>cap){ r.over=true; r.finRaw=r.fin; r.fin=cap; }
+      if(r.dl&&(r.dl>maxT||r.dl<minT)){ r.dlOff=true; }
+    });
     var W=360, x0=(opts&&opts.x0)||92, x1=W-8, top=18, rowH=26, H=top+rows.length*rowH+12;
     function X(dt){ var f=(dt-minT)/(maxT-minT); return x0+Math.max(0,Math.min(1,f))*(x1-x0); }
     var s='<div class="chart-card"><svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+esc((opts&&opts.aria)||"Schedule forecast")+'">';
-    for(var d=new Date(minT); d<=maxT; d=addD(d,1)){ if(d.getDay()===0||d.getDay()===6){ var xa=X(d), xb=X(addD(d,1)); s+='<rect x="'+xa.toFixed(1)+'" y="'+top+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-top-10)+'" fill="#f4f5f6"/>'; } }
+    // subtle row banding
+    rows.forEach(function(r,i){ if(i%2){ s+='<rect x="0" y="'+(top+1+i*rowH)+'" width="'+W+'" height="'+rowH+'" fill="#f8f9fa"/>'; } });
+    for(var d=new Date(minT); d<=maxT; d=addD(d,1)){ if(d.getDay()===0||d.getDay()===6){ var xa=X(d), xb=X(addD(d,1)); s+='<rect x="'+xa.toFixed(1)+'" y="'+top+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-top-10)+'" fill="#f1f3f4"/>'; } }
     var xt=X(today);
+    var spanDays=Math.round((maxT-minT)/DAY);
+    var labEvery=(spanDays<=10)?1:((spanDays<=17)?2:0); // 0 = label Mondays only
     for(var d2=new Date(minT); d2<=maxT; d2=addD(d2,1)){ var xm=X(d2);
-      if(d2.getDay()===1){
-        s+='<line x1="'+xm.toFixed(1)+'" y1="'+top+'" x2="'+xm.toFixed(1)+'" y2="'+(H-10)+'" stroke="#e3e6e9" stroke-width="1"/>';
-        if(Math.abs(xm-xt)>16) s+='<text x="'+xm.toFixed(1)+'" y="'+(top-6)+'" font-size="8" fill="#8b97a3" text-anchor="middle" font-family="Barlow,sans-serif">'+(d2.getMonth()+1)+'/'+d2.getDate()+'</text>';
+      var isMon=d2.getDay()===1, wkend=(d2.getDay()===0||d2.getDay()===6);
+      if(isMon){
+        s+='<line x1="'+xm.toFixed(1)+'" y1="'+top+'" x2="'+xm.toFixed(1)+'" y2="'+(H-10)+'" stroke="#dfe3e7" stroke-width="1"/>';
       } else {
         s+='<line x1="'+xm.toFixed(1)+'" y1="'+top+'" x2="'+xm.toFixed(1)+'" y2="'+(H-10)+'" stroke="#dfe3e7" stroke-width="0.7" stroke-dasharray="1.6 2.8" opacity="0.8"/>';
+      }
+      var showLab = labEvery? (Math.round((d2-minT)/DAY)%labEvery===0) : isMon;
+      if(showLab && Math.abs(xm-xt)>(labEvery===1?11:16)){
+        s+='<text x="'+xm.toFixed(1)+'" y="'+(top-6)+'" font-size="'+(labEvery===1?7.5:8)+'" fill="'+(wkend?'#b3bac1':'#8b97a3')+'" text-anchor="middle" font-family="Barlow,sans-serif">'+(d2.getMonth()+1)+'/'+d2.getDate()+'</text>';
       }
     }
     s+='<line x1="'+xt.toFixed(1)+'" y1="'+top+'" x2="'+xt.toFixed(1)+'" y2="'+(H-10)+'" stroke="#1b2733" stroke-width="1.5"/>'+
@@ -2426,7 +2457,7 @@ var App = {
     return arr;
   },
   /* second gantt: one row per room, sorted; each room's own velocity vs its deadline */
-  _chartRoomGantt:function(rs){
+  _chartRoomGantt:function(rs, zoom){
     var DAY=86400000; var today=new Date(); today.setHours(12,0,0,0);
     function addD(dt,n){ return new Date(dt.getTime()+n*DAY); }
     var rows=this._roomSorted(rs).map(function(r){
@@ -2437,7 +2468,16 @@ var App = {
       return row;
     });
     if(!rows.length) return "";
-    return this._ganttSvg(rows,{x0:64, aria:this.areaS()+" schedule forecast"});
+    return this._ganttSvg(rows,{x0:64, aria:this.areaS()+" schedule forecast", zoom:zoom});
+  },
+  /* daily dated completions across the whole project: {ymd: count} */
+  _dailyCompletions:function(){
+    var tpl=this.template(); var ids=[];
+    tpl.forEach(function(t){ if(t.subs&&t.subs.length){ t.subs.forEach(function(s){ids.push(s.id);}); } else ids.push(t.id); });
+    var by={};
+    this.roomList().forEach(function(r){ ids.forEach(function(id){ var v=r.done&&r.done[id]; if(!v) return;
+      var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(dt) by[dt]=(by[dt]||0)+1; }); });
+    return by;
   },
   /* small report: rooms with deadlines — past due / in danger / no pace / on track */
   _deadlineReport:function(rs){
@@ -3463,6 +3503,31 @@ var App = {
       '<div class="pbar lg"><div class="pfill'+(overallPct>=100?' done':'')+'" style="width:'+overallPct+'%"></div></div>'+
       '<div class="sub" style="margin-top:9px;line-height:1.4">'+head+'</div></div>';
 
+    // ---- at-a-glance stat tiles ----
+    var rs=this.roomStats();
+    var byDay=this._dailyCompletions();
+    var tdA=new Date(); tdA.setHours(12,0,0,0);
+    function ymdOff(n){ return tsYMD(tdA.getTime()-n*86400000); }
+    var last7=0, prev7=0, act14=0, sum14=0;
+    for(var i7=0;i7<7;i7++){ last7+=byDay[ymdOff(i7)]||0; }
+    for(var p7=7;p7<14;p7++){ prev7+=byDay[ymdOff(p7)]||0; }
+    for(var a14=0;a14<14;a14++){ var c14=byDay[ymdOff(a14)]||0; if(c14){ act14++; sum14+=c14; } }
+    var rate14=act14?sum14/act14:0;
+    var remainAll=overallTotal-overallDone;
+    var projD=(rate14>0&&remainAll>0)?estFinishDate(Math.ceil(remainAll/rate14)):null;
+    var taskRisk=0; st.tasks.forEach(function(t){ var tdl=ymdD(t.deadline); if(!tdl||t.remainingUnits<=0) return;
+      var tfin=(t.daysLeft!=null)?estFinishDate(t.daysLeft):null;
+      if(tdl<tdA || (tfin&&tfin>tdl)) taskRisk++; });
+    var roomRisk=rs.list.filter(function(r){ return r.status==="overdue"||r.status==="risk"; }).length;
+    var wkDelta=last7-prev7;
+    function tile(k,v,sub,col){ return '<div class="stat-card"><div class="stat-k">'+k+'</div><div class="stat-v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div><div class="stat-s">'+sub+'</div></div>'; }
+    out+='<div class="statgrid">'+
+      tile('This week', last7+' step'+(last7===1?'':'s'), (prev7||last7)?((wkDelta>=0?'+':'')+wkDelta+' vs last week'):'no history yet')+
+      tile('Pace', rate14?('~'+fmtRate(rate14)+'/day'):'—', act14+' active day'+(act14===1?'':'s')+' in last 14')+
+      tile('Projected finish', remainAll<=0?'Done':(projD?('~'+fmtMD(projD)):'—'), remainAll<=0?'every step complete':(projD?'all work, at the 14-day pace':'need a bit more history'))+
+      tile('At risk', String(roomRisk+taskRisk), roomRisk+' '+esc(aP)+' · '+taskRisk+' task'+(taskRisk===1?'':'s'), (roomRisk+taskRisk)?'#c23b2e':'#2e7d4f')+
+      '</div>';
+
     // ---- category % complete ----
     out+='<div class="section-label">Categories — % complete</div>';
     st.tasks.forEach(function(t){
@@ -3517,11 +3582,11 @@ var App = {
 
     // ---- schedule forecast (gantt) ----
     out+='<div class="section-label">Schedule — tasks</div>';
-    out+='<div class="small muted" style="margin-bottom:2px">Each task: solid = work done so far, light = projected finish at the current pace. Red tick = the deadline you set in Config.</div>';
-    out+=this._chartGantt(st);
+    out+='<div class="small muted" style="margin-bottom:4px">Each task: solid = work done so far, light = projected finish at the current pace. Red tick = the deadline you set in Config.</div>';
+    out+=this._zoomChips("t", this.ganttZoomT||"auto");
+    out+=this._chartGantt(st, this.ganttZoomT||"auto");
 
     // ---- room deadline report + room-by-room gantt ----
-    var rs=this.roomStats();
     out+='<div class="section-label">Deadline check — '+esc(aP)+'</div>';
     out+=this._deadlineReport(rs);
     out+='<div class="section-label">Schedule — '+esc(aP)+'</div>';
@@ -3531,7 +3596,8 @@ var App = {
       '<button class="sc-btn'+(sm==="risk"?' on':'')+'" data-action="roomsort" data-s="risk">At risk first</button>'+
       '<button class="sc-btn'+(sm==="deadline"?' on':'')+'" data-action="roomsort" data-s="deadline">By deadline</button>'+
       '<button class="sc-btn'+(sm==="number"?' on':'')+'" data-action="roomsort" data-s="number">By number</button></div>';
-    out+=this._chartRoomGantt(rs);
+    out+=this._zoomChips("r", this.ganttZoomR||"auto");
+    out+=this._chartRoomGantt(rs, this.ganttZoomR||"auto");
 
     out+='</div>';
     return out;
@@ -4510,6 +4576,10 @@ var App = {
         if(this.modal && this.modal.type==="newcrit"){ if(el("ncRoom")) this.modal.roomId=el("ncRoom").value; this.modal.f={text:(el("ncText")?el("ncText").value:""), assignId:(el("ncAssign")?el("ncAssign").value:"")}; this.modal.loc=null; this.render(); } break;
       case "chartseg": this.toast(t.getAttribute("data-tip")); break;
       case "roomsort": this.roomSort=t.getAttribute("data-s"); this.render(); break;
+      case "gzoom":
+        if(t.getAttribute("data-chart")==="r") this.ganttZoomR=t.getAttribute("data-z");
+        else this.ganttZoomT=t.getAttribute("data-z");
+        this.render(); break;
       case "openreport":
         this._rep={roomId:t.getAttribute("data-room"), nid:t.getAttribute("data-nid")}; this.closeModal(); this.go("critreport"); break;
       case "critviewloc":
