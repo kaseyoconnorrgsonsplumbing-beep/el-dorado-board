@@ -2470,6 +2470,84 @@ var App = {
     if(!rows.length) return "";
     return this._ganttSvg(rows,{x0:64, aria:this.areaS()+" schedule forecast", zoom:zoom});
   },
+  /* headline forecast numbers shared by the dashboard tiles and the email report */
+  _forecastStats:function(st, rs){
+    var byDay=this._dailyCompletions();
+    var td=new Date(); td.setHours(12,0,0,0);
+    function ymdOff(n){ return tsYMD(td.getTime()-n*86400000); }
+    var last7=0, prev7=0, act14=0, sum14=0;
+    for(var i7=0;i7<7;i7++){ last7+=byDay[ymdOff(i7)]||0; }
+    for(var p7=7;p7<14;p7++){ prev7+=byDay[ymdOff(p7)]||0; }
+    for(var a14=0;a14<14;a14++){ var c14=byDay[ymdOff(a14)]||0; if(c14){ act14++; sum14+=c14; } }
+    var rate14=act14?sum14/act14:0;
+    var overallDone=0, overallTotal=0; st.tasks.forEach(function(t){ overallDone+=t.doneUnits; overallTotal+=t.totalUnits; });
+    var remainAll=overallTotal-overallDone;
+    var projD=(rate14>0&&remainAll>0)?estFinishDate(Math.ceil(remainAll/rate14)):null;
+    var taskRisk=0; st.tasks.forEach(function(t){ var tdl=ymdD(t.deadline); if(!tdl||t.remainingUnits<=0) return;
+      var tfin=(t.daysLeft!=null)?estFinishDate(t.daysLeft):null;
+      if(tdl<td || (tfin&&tfin>tdl)) taskRisk++; });
+    var roomRisk=rs.list.filter(function(r){ return r.status==="overdue"||r.status==="risk"; }).length;
+    return { overallDone:overallDone, overallTotal:overallTotal, overallPct:(overallTotal?Math.round(overallDone/overallTotal*100):0),
+      last7:last7, prev7:prev7, wkDelta:last7-prev7, act14:act14, rate14:rate14, remainAll:remainAll, projD:projD,
+      taskRisk:taskRisk, roomRisk:roomRisk, today:td };
+  },
+  /* forecast report as rich email HTML — Excel-table style, like the critical report */
+  admEmailHtml:function(){
+    var st=this.projectStats(), rs=this.roomStats(), fx=this._forecastStats(st, rs);
+    var job=this.projName(), aS=this.areaS(), aP=this.areaP(), self=this;
+    var dateS=new Date().toLocaleDateString();
+    var CELL='border:1px solid #d4d4d4;padding:2px 6px;font-family:Calibri,Arial,sans-serif;font-size:15px;color:#000000;background:#ffffff;vertical-align:top;';
+    var HEAD=CELL+'font-weight:bold;';
+    function taskFin(t){ if(t.remainingUnits<=0) return {lab:"Done", d:null}; if(t.daysLeft==null) return {lab:"no pace", d:null}; var d=estFinishDate(t.daysLeft); return {lab:"~"+fmtMD(d), d:d}; }
+    var h='<div style="font-family:Calibri,Arial,sans-serif;color:#000000;font-size:15px;line-height:1.4;max-width:680px">';
+    h+='<div style="font-size:17px;font-weight:bold;margin-bottom:2px">'+esc(job)+' &nbsp;|&nbsp; Forecast report &nbsp;|&nbsp; '+esc(dateS)+'</div>';
+    h+='<div style="margin-bottom:10px">Overall <b>'+fx.overallPct+'%</b> ('+fx.overallDone+' of '+fx.overallTotal+' steps) &middot; This week <b>'+fx.last7+'</b>'+((fx.prev7||fx.last7)?' ('+(fx.wkDelta>=0?'+':'')+fx.wkDelta+' vs last week)':'')+' &middot; Pace <b>'+(fx.rate14?('~'+fmtRate(fx.rate14)+'/day'):'—')+'</b> &middot; Projected finish <b>'+(fx.remainAll<=0?'Done':(fx.projD?('~'+fmtMD(fx.projD)):'—'))+'</b>'+
+      ((fx.roomRisk+fx.taskRisk)?' &middot; <span style="color:#c23b2e;font-weight:bold">At risk: '+fx.roomRisk+' '+esc(aP.toLowerCase())+', '+fx.taskRisk+' task'+(fx.taskRisk===1?'':'s')+'</span>':'')+'</div>';
+    // tasks table
+    h+='<div style="font-size:16px;font-weight:bold;margin:0 0 4px">Tasks</div>';
+    h+='<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:680px;margin-bottom:12px">';
+    h+='<tr><td style="'+HEAD+'">Task</td><td style="'+HEAD+'text-align:center;width:52px">%</td><td style="'+HEAD+'text-align:center;width:76px">Steps</td><td style="'+HEAD+'text-align:center;width:72px">Pace</td><td style="'+HEAD+'text-align:center;width:82px">Est. finish</td><td style="'+HEAD+'text-align:center;width:82px">Deadline</td></tr>';
+    st.tasks.forEach(function(t){
+      var tf=taskFin(t); var tdl=ymdD(t.deadline);
+      var miss=!!(tdl && t.remainingUnits>0 && (tdl<fx.today || (tf.d&&tf.d>tdl)));
+      h+='<tr><td style="'+CELL+'font-weight:bold">'+esc(t.name)+'</td>'+
+         '<td style="'+CELL+'text-align:center">'+t.pct+'%</td>'+
+         '<td style="'+CELL+'text-align:center">'+t.doneUnits+'/'+t.totalUnits+'</td>'+
+         '<td style="'+CELL+'text-align:center">'+(t.rate?('~'+fmtRate(t.rate)+'/day'):'—')+'</td>'+
+         '<td style="'+CELL+'text-align:center'+(tf.lab==="Done"?';font-weight:bold':'')+'">'+tf.lab+'</td>'+
+         '<td style="'+CELL+'text-align:center'+(miss?';color:#c23b2e;font-weight:bold':'')+'">'+(tdl?fmtMD(tdl):'')+'</td></tr>';
+    });
+    h+='</table>';
+    // rooms table (at-risk first)
+    var sumLab={overdue:"PAST DUE", risk:"IN DANGER", watch:"NO PACE", ontrack:"ON TRACK", done:"Done", nodl:""};
+    var sumCol={overdue:"#c23b2e", risk:"#b8690a", watch:"#5b6773", ontrack:"#2e7d4f", done:"#2e7d4f", nodl:"#000000"};
+    h+='<div style="font-size:16px;font-weight:bold;margin:0 0 4px">'+esc(aP)+'</div>';
+    h+='<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:680px;margin-bottom:12px">';
+    h+='<tr><td style="'+HEAD+'width:92px">'+esc(aS)+'</td><td style="'+HEAD+'text-align:center;width:52px">%</td><td style="'+HEAD+'text-align:center;width:86px">Est. finish</td><td style="'+HEAD+'text-align:center;width:82px">Deadline</td><td style="'+HEAD+'">Status</td></tr>';
+    var sortSave=this.roomSort; this.roomSort="risk";
+    var roomRows=this._roomSorted(rs); this.roomSort=sortSave;
+    roomRows.forEach(function(r){
+      var finLab=r.status==="done"?"Done":(r.fin?("~"+fmtMD(r.fin)):"no pace");
+      h+='<tr><td style="'+CELL+'font-weight:bold;white-space:nowrap">'+esc(aS)+' '+esc(r.number)+'</td>'+
+         '<td style="'+CELL+'text-align:center">'+r.pct+'%</td>'+
+         '<td style="'+CELL+'text-align:center'+(r.status==="done"?';font-weight:bold':'')+'">'+finLab+'</td>'+
+         '<td style="'+CELL+'text-align:center">'+(r.dl?fmtMD(r.dl):'')+'</td>'+
+         '<td style="'+CELL+'font-weight:bold;color:'+sumCol[r.status]+'">'+sumLab[r.status]+'</td></tr>';
+    });
+    h+='</table>';
+    h+='<div style="font-size:12px;color:#666666">Pace = steps per active working day, last 14 days. Est. finish = at each item&rsquo;s own current pace. Sent from the '+esc(job)+' room board.</div>';
+    h+='</div>';
+    // plain-text fallback
+    var t2=[job+' | Forecast report | '+dateS,
+      'Overall '+fx.overallPct+'% ('+fx.overallDone+'/'+fx.overallTotal+' steps) | This week '+fx.last7+((fx.prev7||fx.last7)?' ('+(fx.wkDelta>=0?'+':'')+fx.wkDelta+')':'')+' | Pace '+(fx.rate14?('~'+fmtRate(fx.rate14)+'/day'):'—')+' | Projected finish '+(fx.remainAll<=0?'Done':(fx.projD?('~'+fmtMD(fx.projD)):'—')),
+      '', 'TASKS', 'Task | % | Steps | Pace | Est. finish | Deadline'];
+    st.tasks.forEach(function(t){ var tf=taskFin(t); var tdl=ymdD(t.deadline);
+      t2.push(t.name+' | '+t.pct+'% | '+t.doneUnits+'/'+t.totalUnits+' | '+(t.rate?('~'+fmtRate(t.rate)+'/day'):'—')+' | '+tf.lab+' | '+(tdl?fmtMD(tdl):'')); });
+    t2.push('', aP.toUpperCase(), aS+' | % | Est. finish | Deadline | Status');
+    roomRows.forEach(function(r){ var finLab=r.status==="done"?"Done":(r.fin?("~"+fmtMD(r.fin)):"no pace");
+      t2.push(aS+' '+r.number+' | '+r.pct+'% | '+finLab+' | '+(r.dl?fmtMD(r.dl):'')+' | '+sumLab[r.status]); });
+    return { html:h, text:t2.join("\n"), subject:job+' — Forecast report — '+dateS };
+  },
   /* daily dated completions across the whole project: {ymd: count} */
   _dailyCompletions:function(){
     var tpl=this.template(); var ids=[];
@@ -3505,28 +3583,18 @@ var App = {
 
     // ---- at-a-glance stat tiles ----
     var rs=this.roomStats();
-    var byDay=this._dailyCompletions();
-    var tdA=new Date(); tdA.setHours(12,0,0,0);
-    function ymdOff(n){ return tsYMD(tdA.getTime()-n*86400000); }
-    var last7=0, prev7=0, act14=0, sum14=0;
-    for(var i7=0;i7<7;i7++){ last7+=byDay[ymdOff(i7)]||0; }
-    for(var p7=7;p7<14;p7++){ prev7+=byDay[ymdOff(p7)]||0; }
-    for(var a14=0;a14<14;a14++){ var c14=byDay[ymdOff(a14)]||0; if(c14){ act14++; sum14+=c14; } }
-    var rate14=act14?sum14/act14:0;
-    var remainAll=overallTotal-overallDone;
-    var projD=(rate14>0&&remainAll>0)?estFinishDate(Math.ceil(remainAll/rate14)):null;
-    var taskRisk=0; st.tasks.forEach(function(t){ var tdl=ymdD(t.deadline); if(!tdl||t.remainingUnits<=0) return;
-      var tfin=(t.daysLeft!=null)?estFinishDate(t.daysLeft):null;
-      if(tdl<tdA || (tfin&&tfin>tdl)) taskRisk++; });
-    var roomRisk=rs.list.filter(function(r){ return r.status==="overdue"||r.status==="risk"; }).length;
-    var wkDelta=last7-prev7;
+    var fx=this._forecastStats(st, rs);
     function tile(k,v,sub,col){ return '<div class="stat-card"><div class="stat-k">'+k+'</div><div class="stat-v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div><div class="stat-s">'+sub+'</div></div>'; }
     out+='<div class="statgrid">'+
-      tile('This week', last7+' step'+(last7===1?'':'s'), (prev7||last7)?((wkDelta>=0?'+':'')+wkDelta+' vs last week'):'no history yet')+
-      tile('Pace', rate14?('~'+fmtRate(rate14)+'/day'):'—', act14+' active day'+(act14===1?'':'s')+' in last 14')+
-      tile('Projected finish', remainAll<=0?'Done':(projD?('~'+fmtMD(projD)):'—'), remainAll<=0?'every step complete':(projD?'all work, at the 14-day pace':'need a bit more history'))+
-      tile('At risk', String(roomRisk+taskRisk), roomRisk+' '+esc(aP)+' · '+taskRisk+' task'+(taskRisk===1?'':'s'), (roomRisk+taskRisk)?'#c23b2e':'#2e7d4f')+
+      tile('This week', fx.last7+' step'+(fx.last7===1?'':'s'), (fx.prev7||fx.last7)?((fx.wkDelta>=0?'+':'')+fx.wkDelta+' vs last week'):'no history yet')+
+      tile('Pace', fx.rate14?('~'+fmtRate(fx.rate14)+'/day'):'—', fx.act14+' active day'+(fx.act14===1?'':'s')+' in last 14')+
+      tile('Projected finish', fx.remainAll<=0?'Done':(fx.projD?('~'+fmtMD(fx.projD)):'—'), fx.remainAll<=0?'every step complete':(fx.projD?'all work, at the 14-day pace':'need a bit more history'))+
+      tile('At risk', String(fx.roomRisk+fx.taskRisk), fx.roomRisk+' '+esc(aP)+' · '+fx.taskRisk+' task'+(fx.taskRisk===1?'':'s'), (fx.roomRisk+fx.taskRisk)?'#c23b2e':'#2e7d4f')+
       '</div>';
+    // ---- export to email ----
+    out+='<button class="btn btn-block" style="margin-top:8px" data-action="admemail">Copy email report</button>';
+    if(this._admEmailSubject) out+='<a class="btn btn-sm btn-block" style="margin-top:6px;display:block;text-align:center;text-decoration:none" href="mailto:?subject='+encodeURIComponent(this._admEmailSubject).replace(/"/g,"%22")+'">Open a blank email to paste into</a>';
+    out+='<div class="small muted" style="margin-top:4px;text-align:center">Copies the whole forecast — overview, task table and '+esc(aS)+' table — to paste straight into an email.</div>';
 
     // ---- category % complete ----
     out+='<div class="section-label">Categories — % complete</div>';
@@ -4580,6 +4648,15 @@ var App = {
         if(t.getAttribute("data-chart")==="r") this.ganttZoomR=t.getAttribute("data-z");
         else this.ganttZoomT=t.getAttribute("data-z");
         this.render(); break;
+      case "admemail":
+        if(!this.isAdmin()) break;
+        var adR=this.admEmailHtml();
+        this._copyRich(adR.html, adR.text).then(function(ok){
+          if(ok){ App._admEmailSubject=adR.subject; App.toast("Forecast copied — paste into your email"); App.render(); }
+          else App.toast("Couldn’t copy on this device");
+        });
+        this.logEvent("forecast_export","Copied the forecast report as an email");
+        break;
       case "openreport":
         this._rep={roomId:t.getAttribute("data-room"), nid:t.getAttribute("data-nid")}; this.closeModal(); this.go("critreport"); break;
       case "critviewloc":
