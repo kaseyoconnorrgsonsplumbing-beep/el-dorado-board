@@ -1616,13 +1616,19 @@ var App = {
     h+='<div style="font-size:19px;font-weight:bold">'+esc(job)+' &mdash; Critical items</div>';
     h+='<div style="color:#5b6773;font-size:13px;margin:2px 0 14px">'+esc(dateS)+' &middot; '+items.length+' issue'+(items.length===1?"":"s")+' across '+rOrder.length+' '+esc((rOrder.length===1?aS:aP).toLowerCase())+(cparts.length?' &middot; '+cparts.join(' &middot; '):'')+'</div>';
     h+='<div style="font-size:15px;font-weight:bold;border-bottom:2px solid #1b2733;padding-bottom:3px;margin-bottom:8px">Summary</div>';
+    // summary table — blank-Excel-sheet style: white cells, thin gray gridlines
+    var sumLab={ "new":"NEW", "inprogress":"In Progress", "done":"Resolved" };
+    var CELLS='border:1px solid #d4d4d4;padding:2px 6px;font-family:Calibri,Arial,sans-serif;font-size:15px;color:#000000;background:#ffffff;vertical-align:top;';
+    h+='<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:680px;margin-bottom:6px">';
     rOrder.forEach(function(rm){
-      h+='<div style="font-weight:bold;margin:8px 0 3px">'+esc(aS)+' '+esc(rm)+'</div>';
       byRoom[rm].forEach(function(it){
         var n=it.note;
-        h+='<div style="margin:0 0 5px 12px">'+chip(critLane(n))+' <span>'+esc(n.text||"")+'</span>'+(n.assignedName?' <span style="color:#5b6773;font-size:12px">&mdash; '+esc(n.assignedName)+'</span>':'')+'</div>';
+        h+='<tr><td style="'+CELLS+'font-weight:bold;white-space:nowrap;width:92px">'+esc(aS)+' '+esc(rm)+'</td>'+
+           '<td style="'+CELLS+'font-weight:bold;white-space:nowrap;width:92px">'+sumLab[critLane(n)]+'</td>'+
+           '<td style="'+CELLS+'">'+esc(n.text||"")+(n.assignedName?' <span style="color:#5b6773;font-size:12px">&mdash; '+esc(n.assignedName)+'</span>':'')+'</td></tr>';
       });
     });
+    h+='</table>';
     h+='<div style="font-size:15px;font-weight:bold;border-bottom:2px solid #1b2733;padding-bottom:3px;margin:18px 0 8px">Details</div>';
     items.forEach(function(it){
       var n=it.note;
@@ -1655,8 +1661,7 @@ var App = {
     // plain-text fallback
     var t=[job+" — Critical items", dateS+" · "+items.length+" issue"+(items.length===1?"":"s")+(cparts.length?" ("+cparts.join(", ")+")":""), "", "SUMMARY"];
     rOrder.forEach(function(rm){
-      t.push(aS+" "+rm);
-      byRoom[rm].forEach(function(it){ t.push("  ["+lm[critLane(it.note)][0]+"] "+(it.note.text||"")+(it.note.assignedName?" — "+it.note.assignedName:"")); });
+      byRoom[rm].forEach(function(it){ t.push(aS+" "+rm+" | "+sumLab[critLane(it.note)]+" | "+(it.note.text||"")+(it.note.assignedName?" — "+it.note.assignedName:"")); });
     });
     t.push("","DETAILS");
     items.forEach(function(it){
