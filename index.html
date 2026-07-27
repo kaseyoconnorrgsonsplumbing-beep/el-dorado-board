@@ -931,7 +931,9 @@ function tsYMD(ts){ try{ var d=new Date(ts),m=d.getMonth()+1,day=d.getDate(); re
 /* completions/day, tidy: 1 decimal under 10, whole above */
 function fmtRate(r){ if(!r) return "0"; return r>=10?String(Math.round(r)):String(Math.round(r*10)/10); }
 /* rough calendar finish date after N working days (skips weekends) */
-function estFinishDate(workDays){ if(workDays==null) return null; var d=new Date(); d.setHours(12,0,0,0); var added=0,guard=0; while(added<workDays && guard<3650){ d.setDate(d.getDate()+1); var dow=d.getDay(); if(dow!==0&&dow!==6) added++; guard++; } return d; }
+/* is this date a working day? Sat/Sun count only when switched on in Config */
+function isWorkday(d){ var dow=d.getDay(); if(dow===0) return !!(window.App&&App.config&&App.config.workSun); if(dow===6) return !!(window.App&&App.config&&App.config.workSat); return true; }
+function estFinishDate(workDays){ if(workDays==null) return null; var d=new Date(); d.setHours(12,0,0,0); var added=0,guard=0; while(added<workDays && guard<3650){ d.setDate(d.getDate()+1); if(isWorkday(d)) added++; guard++; } return d; }
 function estFinish(workDays){ if(workDays==null||workDays<=0) return ""; var d=estFinishDate(workDays); try{ return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }catch(e){ return ""; } }
 function ymdD(ymd){ if(!ymd) return null; try{ var d=new Date(ymd+"T12:00:00"); return isNaN(d.getTime())?null:d; }catch(e){ return null; } }
 function fmtMD(d){ if(!d) return ""; return (d.getMonth()+1)+"/"+d.getDate(); }
@@ -2285,7 +2287,7 @@ var App = {
     var series=order.slice(0,CHART_COLS.length).map(function(nm,i){ return {name:nm,color:CHART_COLS[i],counts:byP[nm].counts}; });
     var rest=order.slice(CHART_COLS.length);
     if(rest.length){ var oc={}; rest.forEach(function(nm){ var c=byP[nm].counts; Object.keys(c).forEach(function(d){ oc[d]=(oc[d]||0)+c[d]; }); }); series.push({name:"Other",color:CHART_OTHER,counts:oc}); }
-    var days=[]; for(var i=13;i>=0;i--){ var d=new Date(); d.setDate(d.getDate()-i); days.push({ymd:tsYMD(d.getTime()), lab:(d.getMonth()+1)+"/"+d.getDate(), wkend:(d.getDay()===0||d.getDay()===6)}); }
+    var days=[]; for(var i=13;i>=0;i--){ var d=new Date(); d.setDate(d.getDate()-i); days.push({ymd:tsYMD(d.getTime()), lab:(d.getMonth()+1)+"/"+d.getDate(), wkend:!isWorkday(d)}); }
     var totals=days.map(function(day){ return series.reduce(function(a,s){return a+(s.counts[day.ymd]||0);},0); });
     var max=Math.max.apply(null,totals);
     if(max<=0) return "";
@@ -2369,12 +2371,12 @@ var App = {
     var s='<div class="chart-card"><svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+esc((opts&&opts.aria)||"Schedule forecast")+'">';
     // subtle row banding
     rows.forEach(function(r,i){ if(i%2){ s+='<rect x="0" y="'+(top+1+i*rowH)+'" width="'+W+'" height="'+rowH+'" fill="#f8f9fa"/>'; } });
-    for(var d=new Date(minT); d<=maxT; d=addD(d,1)){ if(d.getDay()===0||d.getDay()===6){ var xa=X(d), xb=X(addD(d,1)); s+='<rect x="'+xa.toFixed(1)+'" y="'+top+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-top-10)+'" fill="#f1f3f4"/>'; } }
+    for(var d=new Date(minT); d<=maxT; d=addD(d,1)){ if(!isWorkday(d)){ var xa=X(d), xb=X(addD(d,1)); s+='<rect x="'+xa.toFixed(1)+'" y="'+top+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-top-10)+'" fill="#f1f3f4"/>'; } }
     var xt=X(today);
     var spanDays=Math.round((maxT-minT)/DAY);
     var labEvery=(spanDays<=10)?1:((spanDays<=17)?2:0); // 0 = label Mondays only
     for(var d2=new Date(minT); d2<=maxT; d2=addD(d2,1)){ var xm=X(d2);
-      var isMon=d2.getDay()===1, wkend=(d2.getDay()===0||d2.getDay()===6);
+      var isMon=d2.getDay()===1, wkend=!isWorkday(d2);
       if(isMon){
         s+='<line x1="'+xm.toFixed(1)+'" y1="'+top+'" x2="'+xm.toFixed(1)+'" y2="'+(H-10)+'" stroke="#dfe3e7" stroke-width="1"/>';
       } else {
@@ -2421,7 +2423,7 @@ var App = {
       '<span class="cl-item"><span class="cl-sw" style="background:#f0c4be"></span>Forecast — misses deadline</span>'+
       '<span class="cl-item"><span class="cl-sw" style="background:#c23b2e;width:3px;border-radius:1px"></span>Deadline</span>'+
       '<span class="cl-item"><span class="cl-sw" style="background:none;border:1.5px dashed #8b97a3"></span>No pace yet</span></div>'+
-      '<div class="small muted" style="margin-top:5px">Faded dotted lines are days, gray columns are weekends, red ticks are deadlines. &#8250; means the finish runs past the 8-week window shown.</div></div>';
+      '<div class="small muted" style="margin-top:5px">Faded dotted lines are days, gray columns are non-working days, red ticks are deadlines. &#8250; means the finish runs past the 8-week window shown.</div></div>';
     return s;
   },
   /* per-room velocity/forecast vs its (optional) deadline */
@@ -2501,8 +2503,33 @@ var App = {
       last7:last7, prev7:prev7, wkDelta:last7-prev7, act14:act14, rate14:rate14, remainAll:remainAll, projD:projD,
       taskRisk:taskRisk, roomRisk:roomRisk, today:td };
   },
-  /* forecast report as rich email HTML — Excel-table style, like the critical report */
-  admEmailHtml:function(){
+  /* rasterize a chart's SVG markup into a PNG data URL (for pasting into emails) */
+  _svgToPng:function(chartHtml, scale){
+    return new Promise(function(res){
+      try{
+        var mm=/<svg[\s\S]*?<\/svg>/.exec(chartHtml||""); if(!mm){ res(null); return; }
+        var svg=mm[0];
+        var vb=/viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
+        var w=vb?parseFloat(vb[1]):360, h=vb?parseFloat(vb[2]):200;
+        svg=svg.replace('<svg ','<svg width="'+w+'" height="'+h+'" ');
+        var img=new Image();
+        img.onload=function(){
+          try{
+            var sc=scale||2, c=document.createElement("canvas");
+            c.width=Math.round(w*sc); c.height=Math.round(h*sc);
+            var ctx=c.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,c.width,c.height);
+            ctx.scale(sc,sc); ctx.drawImage(img,0,0,w,h);
+            res(c.toDataURL("image/png"));
+          }catch(e){ res(null); }
+        };
+        img.onerror=function(){ res(null); };
+        img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+      }catch(e){ res(null); }
+    });
+  },
+  /* forecast report as rich email HTML — Excel-table style, like the critical report.
+     charts (optional): {tasks:<png dataURL>, rooms:<png dataURL>} rendered inline. */
+  admEmailHtml:function(charts){
     var st=this.projectStats(), rs=this.roomStats(), fx=this._forecastStats(st, rs);
     var job=this.projName(), aS=this.areaS(), aP=this.areaP(), self=this;
     var dateS=new Date().toLocaleDateString();
@@ -2513,6 +2540,11 @@ var App = {
     h+='<div style="font-size:17px;font-weight:bold;margin-bottom:2px">'+esc(job)+' &nbsp;|&nbsp; Forecast report &nbsp;|&nbsp; '+esc(dateS)+'</div>';
     h+='<div style="margin-bottom:10px">Overall <b>'+fx.overallPct+'%</b> ('+fx.overallDone+' of '+fx.overallTotal+' steps) &middot; This week <b>'+fx.last7+'</b>'+((fx.prev7||fx.last7)?' ('+(fx.wkDelta>=0?'+':'')+fx.wkDelta+' vs last week)':'')+' &middot; Pace <b>'+(fx.rate14?('~'+fmtRate(fx.rate14)+'/day'):'—')+'</b> &middot; Projected finish <b>'+(fx.remainAll<=0?'Done':(fx.projD?('~'+fmtMD(fx.projD)):'—'))+'</b>'+
       ((fx.roomRisk+fx.taskRisk)?' &middot; <span style="color:#c23b2e;font-weight:bold">At risk: '+fx.roomRisk+' '+esc(aP.toLowerCase())+', '+fx.taskRisk+' task'+(fx.taskRisk===1?'':'s')+'</span>':'')+'</div>';
+    var chartCap='<div style="font-size:11px;color:#666666;margin:-6px 0 10px">Green = done, light green = forecast at current pace, light red = misses deadline, red tick = deadline, gray = non-working days.</div>';
+    if(charts&&charts.tasks){
+      h+='<div style="font-size:16px;font-weight:bold;margin:0 0 4px">Schedule &mdash; tasks</div>'+
+        '<img src="'+charts.tasks+'" width="640" style="width:100%;max-width:640px;border:1px solid #e3e6e9;border-radius:6px;margin:0 0 10px" alt="Task schedule gantt">'+chartCap;
+    }
     // tasks table
     h+='<div style="font-size:16px;font-weight:bold;margin:0 0 4px">Tasks</div>';
     h+='<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:680px;margin-bottom:12px">';
@@ -2531,6 +2563,10 @@ var App = {
     // rooms table (at-risk first)
     var sumLab={overdue:"PAST DUE", risk:"IN DANGER", watch:"NO PACE", ontrack:"ON TRACK", done:"Done", nodl:""};
     var sumCol={overdue:"#c23b2e", risk:"#b8690a", watch:"#5b6773", ontrack:"#2e7d4f", done:"#2e7d4f", nodl:"#000000"};
+    if(charts&&charts.rooms){
+      h+='<div style="font-size:16px;font-weight:bold;margin:0 0 4px">Schedule &mdash; '+esc(aP.toLowerCase())+'</div>'+
+        '<img src="'+charts.rooms+'" width="640" style="width:100%;max-width:640px;border:1px solid #e3e6e9;border-radius:6px;margin:0 0 10px" alt="Room schedule gantt">';
+    }
     h+='<div style="font-size:16px;font-weight:bold;margin:0 0 4px">'+esc(aP)+'</div>';
     h+='<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:680px;margin-bottom:12px">';
     h+='<tr><td style="'+HEAD+'width:92px">'+esc(aS)+'</td><td style="'+HEAD+'text-align:center;width:52px">%</td><td style="'+HEAD+'text-align:center;width:86px">Est. finish</td><td style="'+HEAD+'text-align:center;width:82px">Deadline</td><td style="'+HEAD+'">Status</td></tr>';
@@ -3321,6 +3357,10 @@ var App = {
       '<div class="field"><label class="lbl">Address</label><input class="in" id="jobAddress" value="'+esc(d.job.address||"")+'"></div></div>'+
       '<div class="row-2"><div class="field"><label class="lbl">Areas are called (singular)</label><input class="in" id="areaSingular" value="'+esc(aS)+'" placeholder="Room"></div>'+
       '<div class="field"><label class="lbl">Plural</label><input class="in" id="areaPlural" value="'+esc(aP)+'" placeholder="Rooms"></div></div>'+
+      '<label class="lbl">Working days</label>'+
+      '<div class="row-2" style="margin:2px 0 2px"><label class="toggle" style="flex:none"><input type="checkbox" id="workSat"'+(d.workSat?' checked':'')+'> Saturdays worked</label>'+
+      '<label class="toggle" style="flex:none"><input type="checkbox" id="workSun"'+(d.workSun?' checked':'')+'> Sundays worked</label></div>'+
+      '<div class="small muted" style="margin-bottom:6px">Checked days count toward the forecast&rsquo;s working days and lose the gray shading on the schedule charts. Saves with the button at the bottom.</div>'+
       '<button class="btn btn-sm" data-action="go" data-view="projects">Switch project</button>';
 
     // Areas
@@ -4664,10 +4704,15 @@ var App = {
         this.render(); break;
       case "admemail":
         if(!this.isAdmin()) break;
-        var adR=this.admEmailHtml();
-        this._copyRich(adR.html, adR.text).then(function(ok){
-          if(ok){ App._admEmailSubject=adR.subject; App.toast("Forecast copied — paste into your email"); App.render(); }
-          else App.toast("Couldn’t copy on this device");
+        var stEm=this.projectStats(), rsEm=this.roomStats();
+        var tChart=this._chartGantt(stEm, this.ganttZoomT||"auto");
+        var rChart=this._chartRoomGantt(rsEm, this.ganttZoomR||"auto");
+        Promise.all([this._svgToPng(tChart,2), this._svgToPng(rChart,2)]).then(function(imgs){
+          var adR=App.admEmailHtml({tasks:imgs[0], rooms:imgs[1]});
+          return App._copyRich(adR.html, adR.text).then(function(ok){
+            if(ok){ App._admEmailSubject=adR.subject; App.toast("Forecast copied — charts and all. Paste into your email."); App.render(); }
+            else App.toast("Couldn’t copy on this device");
+          });
         });
         this.logEvent("forecast_export","Copied the forecast report as an email");
         break;
@@ -4960,6 +5005,8 @@ var App = {
     if(jn) d.job.name=jn.value.trim(); if(jnum) d.job.number=jnum.value.trim(); if(jad) d.job.address=jad.value.trim();
     var aSi=el("areaSingular"), aPl=el("areaPlural");
     if(aSi) d.areaSingular=aSi.value.trim()||"Room"; if(aPl) d.areaPlural=aPl.value.trim()||(d.areaSingular?d.areaSingular+"s":"Rooms");
+    var wSa=el("workSat"); if(wSa) d.workSat=wSa.checked;
+    var wSu=el("workSun"); if(wSu) d.workSun=wSu.checked;
     var an=el("adminName"), ap=el("adminPin");
     if(!d.admin) d.admin={pin:"",name:""};
     if(an) d.admin.name=an.value.trim(); if(ap) d.admin.pin=ap.value.trim();
