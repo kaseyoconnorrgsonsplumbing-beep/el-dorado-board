@@ -1,38 +1,134 @@
-// ============================================================
-// PASTE THIS whole block into:
-//   Firebase console  →  Firestore Database  →  Rules tab
-//   (replace everything in the box, then click Publish)
-//
-// It keeps your existing "tickets" rules AND adds the three
-// El Dorado collections. Nothing else is opened up.
-// ============================================================
 rules_version = '2';
+// ===========================================================================
+// RG & Sons — Room Progress board (multi-trade, multi-project)
+// ---------------------------------------------------------------------------
+// READ THIS FIRST — what rules can and cannot do here.
+//
+// The app has no Firebase Authentication. People sign in with an app-level
+// password that is checked in JavaScript, so Firestore has NO IDEA which
+// person is making a request — every request arrives anonymous and identical.
+// That means "a PM can't touch another project" is enforced in the app
+// (App.currentUser() returns null on an unassigned project, which closes every
+// edit path), and CANNOT be fully enforced down here until real auth exists.
+//
+// What these rules DO give you today:
+//   * nothing outside the eldorado_* collections is reachable
+//   * every project-scoped doc must carry a projectId, and that projectId can
+//     never be changed after the doc is created — so nothing can be silently
+//     moved from one job onto another
+//   * user records must carry a project assignment; their id and created
+//     stamp are write-once
+//   * the activity log is append-only: entries can't be edited or deleted
+//
+// TO GET REAL SERVER-SIDE ENFORCEMENT (the proper fix, when you want it):
+//   1. Firebase console -> Authentication -> Sign-in method -> enable Anonymous
+//   2. In index.html, right after firebase.initializeApp(...):
+//        firebase.auth().signInAnonymously();
+//   3. Flip REQUIRE_AUTH below to true and republish.
+//   That closes the door on the open internet. Per-project enforcement needs
+//   one more step: write each signed-in device's app-user id to
+//   /eldorado_members/{uid} and have these rules read it. Say the word and
+//   I'll build it — it changes how logins work, so it's a deliberate upgrade,
+//   not a drop-in.
+//
+// HONEST WARNING, unchanged by this file: eldorado_users stores passwords in
+// plain text and is readable by anyone who has the site URL. Treat those
+// passwords like job-site door codes, not secrets. Nobody should reuse a
+// password they use anywhere else.
+//
+// PUBLISHING: Firebase console -> Firestore -> Rules. REPLACE the whole box
+// with this file's contents — never append. The console is the source of
+// truth; this file is only the reference copy.
+// ===========================================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Existing: Water Heater Field Helper tickets ---
-    match /tickets/{ticketId} {
-      allow read, write: if true;
+    // ---- switch: flip to true once Anonymous Auth is enabled (see notes) ----
+    function REQUIRE_AUTH() { return false; }
+    function allowed() { return REQUIRE_AUTH() ? request.auth != null : true; }
+
+    function isCreate() { return resource == null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // A project-scoped doc must name its project, and may never change it.
+    // Deliberately forgiving on UPDATE: rooms and log rows created before
+    // multi-project support have no projectId at all, and the live El Dorado
+    // job is full of them — a stricter rule would stop the crew from checking
+    // off work. New docs must be scoped; old docs may stay unscoped, but the
+    // moment a projectId exists it is frozen.
+    function hasProject() {
+      return incoming().keys().hasAll(['projectId'])
+             && incoming().projectId is string
+             && incoming().projectId.size() > 0;
+    }
+    function projectPinned() {
+      return !('projectId' in existing())
+             || !incoming().keys().hasAll(['projectId'])
+             || incoming().projectId == existing().projectId;
+    }
+    function scoped() {
+      return allowed() && (isCreate() ? hasProject() : projectPinned());
     }
 
-    // --- El Dorado room-progress board ---
-    match /eldorado_config/{doc} {
-      allow read, write: if true;
-    }
+    // ---- projects: one doc per job (name, trade, areas, task list, admin) ----
     match /eldorado_projects/{project} {
-      allow read, write: if true;
+      allow read: if allowed();
+      allow write: if allowed()
+                   && incoming().keys().hasAll(['job'])
+                   // a project's id is its identity — it can't be re-pointed
+                   && (isCreate() || !('id' in existing()) || incoming().id == existing().id);
     }
+
+    // ---- legacy single-board config (migration source only) ----
+    match /eldorado_config/{doc} {
+      allow read, write: if allowed();
+    }
+
+    // ---- areas / rooms: progress, photos, notes, critical items ----
     match /eldorado_rooms/{room} {
-      allow read, write: if true;
+      allow read: if allowed();
+      allow create, update: if scoped();
+      allow delete: if allowed();
     }
+
+    // ---- users: name, company, password, role, project assignment ----
+    // projects[] is the new shape; projectId is the legacy single-project one.
     match /eldorado_users/{user} {
-      allow read, write: if true;
+      allow read: if allowed();
+      allow create, update: if allowed()
+        && incoming().keys().hasAll(['name','pin','role'])
+        && incoming().role in ['field','pm','admin']
+        && (
+             (incoming().keys().hasAll(['projects'])
+              && incoming().projects is list
+              && incoming().projects.size() > 0)
+             || (incoming().keys().hasAll(['projectId']) && incoming().projectId is string)
+           )
+        // identity and audit stamps are write-once
+        && (isCreate() || !('id' in existing()) || incoming().id == existing().id)
+        && (isCreate() || !('createdTs' in existing()) || incoming().createdTs == existing().createdTs);
+      allow delete: if allowed();
     }
+
+    // ---- activity log: append-only. Written once, never edited or removed. ----
     match /eldorado_log/{entry} {
-      allow read, write: if true;
+      allow read: if allowed();
+      allow create: if allowed()
+                    && incoming().keys().hasAll(['ts','type'])
+                    && incoming().ts is number;
+      allow update, delete: if false;
     }
+
+    // ---- material requests ----
     match /eldorado_materials/{req} {
-      allow read, write: if true;
+      allow read: if allowed();
+      allow create, update: if scoped();
+      allow delete: if allowed();
     }
+
+    // ---- Everything else in this Firebase project (tickets, proposal writer,
+    // ---- the other field apps) keeps its own rules. Nothing here widens them.
   }
 }

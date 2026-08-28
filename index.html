@@ -401,6 +401,20 @@ button.u-pin:active{color:var(--accent)}
 .role-btn{flex:none;min-height:34px;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;color:var(--steel);font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
 .role-btn.on{background:#0d4f8b;border-color:#0d4f8b;color:#fff}
 .role-badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.05em;color:#fff;background:#0d4f8b;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle}
+/* trade badge + per-user project chips */
+.trade-badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.05em;color:#fff;background:#5a6b7b;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle;text-transform:uppercase}
+.proj-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.proj-chips .pchip{font-size:9.5px;font-weight:700;letter-spacing:.03em;color:var(--steel);background:#eef2f6;border:1px solid var(--hairline);border-radius:999px;padding:1px 7px;white-space:nowrap}
+.proj-chips .pchip.none{color:#b91c1c;background:#fdecec;border-color:#f6c9c9}
+.trade-grid{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
+.trade-grid button{flex:1 1 46%;min-height:38px;padding:7px 8px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;color:var(--steel);font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:12.5px;cursor:pointer;text-align:left;line-height:1.2}
+.trade-grid button.on{background:#0d4f8b;border-color:#0d4f8b;color:#fff}
+.trade-grid button .tg-sub{display:block;font-size:9.5px;font-weight:600;opacity:.7;text-transform:none;letter-spacing:0}
+.assign-list{max-height:190px;overflow:auto;border:1px solid var(--hairline);border-radius:var(--radius);padding:4px 6px;margin-bottom:6px;background:#fff}
+.assign-list label{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;border-bottom:1px solid var(--hairline);cursor:pointer}
+.assign-list label:last-child{border-bottom:none}
+.assign-list input{width:18px;height:18px;flex:none}
+.assign-list .al-sub{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap}
 
 /* Room list (stacked, per-task % on its own line) */
 .rooms-list{display:flex;flex-direction:column;gap:8px}
@@ -639,17 +653,84 @@ function el(id){ return document.getElementById(id); }
 function fmtDate(d){ if(!d) return ""; try{ var x=new Date(d+"T00:00:00"); return x.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return d; } }
 function clamp(n){ return Math.max(0,Math.min(100,n)); }
 
-/* ---------- default task template (fully editable in Config) ---------- */
-function defaultTemplate(){
-  function t(name,subs){ return {id:uid("t"),name:name,subs:(subs||[]).map(function(s){return {id:uid("s"),name:s};})}; }
-  return [
-    t("Underground / DWV rough-in",["Waste & vent underground","Sanitary tie-in","Cleanouts set","Underground inspection"]),
-    t("Water rough-in / top-out",["Hot & cold distribution","Isolation valves","Pressure test","Rough inspection"]),
-    t("Fixture supports / carriers",["Wall carriers set","Backing / blocking"]),
-    t("Trim-out / set fixtures",["Sinks & lavatories","Water closets","Faucets / flush valves","Stops & supplies"]),
-    t("Test & final inspection",["Final pressure test","Final inspection sign-off"])
-  ];
+/* ---------- trade library ----------------------------------------------
+   Every project picks a trade. The trade only decides two things: the label
+   shown on the project, and the STARTER task list it begins with. Nothing is
+   locked — the office can rename, reorder, add or delete any task in Config,
+   exactly like before. Adding a new trade here = add one entry to this list.
+   ------------------------------------------------------------------------ */
+var TRADES = [
+  { id:"plumbing", name:"Plumbing", short:"PLB", color:"#0d4f8b", tasks:[
+      ["Underground / DWV rough-in",["Waste & vent underground","Sanitary tie-in","Cleanouts set","Underground inspection"]],
+      ["Water rough-in / top-out",["Hot & cold distribution","Isolation valves","Pressure test","Rough inspection"]],
+      ["Fixture supports / carriers",["Wall carriers set","Backing / blocking"]],
+      ["Trim-out / set fixtures",["Sinks & lavatories","Water closets","Faucets / flush valves","Stops & supplies"]],
+      ["Test & final inspection",["Final pressure test","Final inspection sign-off"]]
+  ]},
+  { id:"electrical", name:"Electrical", short:"ELE", color:"#b8860b", tasks:[
+      ["Underground / slab",["Conduit under slab","Ground ring / Ufer","Underground inspection"]],
+      ["Rough-in",["Boxes set","Conduit / MC runs","Home runs pulled","Rough inspection"]],
+      ["Wire pull & terminations",["Branch circuits pulled","Device terminations","Panel terminations"]],
+      ["Trim-out",["Devices & plates","Fixtures hung","Lamped & aimed"]],
+      ["Test & final inspection",["Circuit testing / megger","Panel schedule posted","Final inspection sign-off"]]
+  ]},
+  { id:"hvac", name:"HVAC / Mechanical", short:"MEC", color:"#0f766e", tasks:[
+      ["Equipment set",["Units set / curbs","Vibration isolation","Condensate routed"]],
+      ["Duct rough-in",["Main trunk","Branch runs","Duct leak test"]],
+      ["Piping",["Refrigerant / hydronic lines","Insulation","Pressure test"]],
+      ["Controls",["Thermostats / sensors","Control wiring","Point-to-point check"]],
+      ["Air balance & final",["Grilles & diffusers","Test & balance report","Final inspection sign-off"]]
+  ]},
+  { id:"fire", name:"Fire Protection", short:"FP", color:"#b91c1c", tasks:[
+      ["Mains & risers",["Riser set","Underground / lead-in","Hydro test mains"]],
+      ["Branch lines",["Branch piping","Drops & armovers","Hangers / seismic bracing"]],
+      ["Heads & devices",["Sprinkler heads set","Escutcheons","Flow / tamper switches"]],
+      ["Test & final inspection",["200 psi hydro test","Fire marshal walk","Final inspection sign-off"]]
+  ]},
+  { id:"lowvoltage", name:"Low Voltage / Data", short:"LV", color:"#6d28d9", tasks:[
+      ["Pathway",["Sleeves & J-hooks","Conduit / raceway","Backboxes set"]],
+      ["Cable pull",["Data drops pulled","AV / security cable","Labeling"]],
+      ["Termination",["Jacks & faceplates","Rack / patch panel","Device mounting"]],
+      ["Test & closeout",["Certification test","As-built cable schedule","Final sign-off"]]
+  ]},
+  { id:"framing", name:"Framing / Drywall", short:"FRM", color:"#92400e", tasks:[
+      ["Layout & track",["Floor & ceiling track","Wall layout verified"]],
+      ["Framing",["Studs set","Blocking / backing","Door & window openings","Framing inspection"]],
+      ["Insulation & board",["Insulation","Rock one side","In-wall inspection","Rock second side"]],
+      ["Finish",["Tape & mud","Sand","Texture","Ready for paint"]]
+  ]},
+  { id:"concrete", name:"Concrete / Sitework", short:"CON", color:"#475569", tasks:[
+      ["Prep",["Excavation / grade","Form set","Vapor barrier"]],
+      ["Reinforcing",["Rebar / mesh placed","Embeds & sleeves","Pre-pour inspection"]],
+      ["Pour",["Placement","Finish / broom","Control joints"]],
+      ["Cure & strip",["Cure","Strip forms","Patch & clean"]]
+  ]},
+  { id:"finishes", name:"Finishes / Paint", short:"FIN", color:"#be185d", tasks:[
+      ["Prep",["Surface prep","Masking","Primer"]],
+      ["Paint / coatings",["First coat","Second coat","Touch-up"]],
+      ["Flooring & base",["Substrate prep","Flooring set","Base / transitions"]],
+      ["Final",["Punch walk","Final clean","Owner sign-off"]]
+  ]},
+  { id:"general", name:"General Contractor", short:"GC", color:"#0d4f8b", tasks:[
+      ["Rough-in complete",["Plumbing rough","Electrical rough","Mechanical rough","Framing inspection"]],
+      ["Close-in",["Insulation","Drywall","In-wall sign-off"]],
+      ["Finishes",["Paint","Flooring","Ceilings","Doors & hardware"]],
+      ["Trim-out",["Plumbing trim","Electrical trim","Mechanical trim"]],
+      ["Closeout",["Punch list","Final clean","Final inspection sign-off"]]
+  ]},
+  { id:"custom", name:"Other / build my own", short:"—", color:"#5a6b7b", tasks:[] }
+];
+function tradeById(id){ for(var i=0;i<TRADES.length;i++){ if(TRADES[i].id===id) return TRADES[i]; } return null; }
+function tradeName(id){ var t=tradeById(id); return t?t.name:""; }
+/* build a fresh, fully-editable template (new ids) from a trade's starter list */
+function templateForTrade(id){
+  var tr=tradeById(id); if(!tr) return [];
+  return tr.tasks.map(function(pair){
+    return { id:uid("t"), name:pair[0], subs:(pair[1]||[]).map(function(s){ return {id:uid("s"),name:s}; }) };
+  });
 }
+/* ---------- default task template (fully editable in Config) ---------- */
+function defaultTemplate(){ return templateForTrade("plumbing"); }
 
 /* ============================================================
    STORE  — Firestore when available, else localStorage.
@@ -753,6 +834,9 @@ var Store = {
     }
   },
   saveRoom:function(room){
+    // rooms created before multi-project support carry no projectId — stamp
+    // them on the way out so every row ends up scoped to a job
+    if(room && !room.projectId) room.projectId = DEFAULT_PID;
     this._rooms[room.id]=room;
     if(this.mode==="cloud"){
       return this.db.collection(CFG.roomsCollection).doc(room.id).set(room)
@@ -1202,6 +1286,8 @@ var App = {
     Store.onUsers(function(u){
       App.users = u||{};
       App.reconcileSession();
+      // the office may have just moved them off this job — land them somewhere legal
+      App.resolveProject(); App.syncConfig();
       if(App.view!=="config" && !App.modal) App.render();
     });
     Store.onMaterials(function(m){
@@ -1221,7 +1307,7 @@ var App = {
     var a=Object.keys(this.projects).map(function(k){return App.projects[k];});
     // include the migrated default from legacy data even if its doc isn't written yet
     if(!this.projects[DEFAULT_PID] && this.hasLegacy() && this.config && this.projectId===DEFAULT_PID){ a.push(this.config); }
-    else if(!this.projects[DEFAULT_PID] && this.hasLegacy()){ a.push({id:DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms", job:{name:(this._legacyMain.job&&this._legacyMain.job.name)||"El Dorado Hospital"}, template:this._legacyMain.template||[], admin:this._legacyMain.admin||{}, createdTs:0}); }
+    else if(!this.projects[DEFAULT_PID] && this.hasLegacy()){ a.push({id:DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms", trade:"plumbing", job:{name:(this._legacyMain.job&&this._legacyMain.job.name)||"El Dorado Hospital"}, template:this._legacyMain.template||[], admin:this._legacyMain.admin||{}, createdTs:0}); }
     a.sort(function(x,y){return (x.createdTs||0)-(y.createdTs||0);}); return a;
   },
   syncConfig:function(){
@@ -1230,7 +1316,7 @@ var App = {
     // eldorado_projects rule isn't published), still serve it from the legacy config
     if(!p && this.projectId===DEFAULT_PID && this._legacyMain){
       var m=this._legacyMain;
-      p={ id:DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms",
+      p={ id:DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms", trade:"plumbing",
           job:{ name:(m.job&&m.job.name)||CFG.defaultJobName||"El Dorado Hospital", number:(m.job&&m.job.number)||"", address:(m.job&&m.job.address)||"" },
           template:m.template||defaultTemplate(), admin:m.admin||{pin:"",name:""}, createdTs:0 };
     }
@@ -1243,7 +1329,7 @@ var App = {
     if(this._legacyMain===undefined) return; // wait until we know whether legacy data exists
     var m=this._legacyMain;
     if(m && (m.template || m.job || m.admin)){
-      var proj={ id:DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms",
+      var proj={ id:DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms", trade:"plumbing",
         job:{ name:(m.job&&m.job.name)||CFG.defaultJobName||"El Dorado Hospital", number:(m.job&&m.job.number)||"", address:(m.job&&m.job.address)||"" },
         template:m.template||defaultTemplate(), admin:m.admin||{pin:"",name:""}, createdTs:0 };
       this._seeded=true; Store.saveProject(proj);
@@ -1253,23 +1339,83 @@ var App = {
   },
   projName:function(p){ p=p||this.config; return (p&&p.job&&p.job.name)||(p&&p.name)||"Untitled project"; },
   resolveProject:function(){
-    if(this.projectId && (this.projects[this.projectId] || this.projectId===DEFAULT_PID)) return;
-    var ids=Object.keys(this.projects);
-    var wantDefault = this.projects[DEFAULT_PID] || this.hasLegacy();
-    this.projectId = wantDefault?DEFAULT_PID:(ids[0]||this.projectId||null);
+    var known = this.projectId && (this.projects[this.projectId] || this.projectId===DEFAULT_PID);
+    if(known && this.canOpenProject(this.projectId)) return;
+    if(!known){
+      var ids=Object.keys(this.projects);
+      var wantDefault = this.projects[DEFAULT_PID] || this.hasLegacy();
+      this.projectId = wantDefault?DEFAULT_PID:(ids[0]||this.projectId||null);
+    }
+    // the saved project may belong to a job this person was taken off of
+    if(this.projectId && !this.canOpenProject(this.projectId)){
+      var okd=this.visibleProjects();
+      this.projectId = okd.length?okd[0].id:this.projectId;
+    }
     if(this.projectId){ try{ localStorage.setItem("eldorado_project",this.projectId); }catch(e){} }
   },
   applyDeepRoom:function(){
     if(!this._deepRoom) return;
     var r=this.rooms[this._deepRoom];
-    if(r){ this.projectId = r.projectId||DEFAULT_PID; try{ localStorage.setItem("eldorado_project",this.projectId); }catch(e){} this._deepRoom=null; }
+    if(r){
+      var rp=r.projectId||DEFAULT_PID;
+      // a QR label for another job shouldn't drag an assigned user into it
+      if(!this.canOpenProject(rp)){ this._deepRoom=null; this.toast("That code is for a project you’re not assigned to"); return; }
+      this.projectId = rp; try{ localStorage.setItem("eldorado_project",this.projectId); }catch(e){} this._deepRoom=null;
+    }
   },
   setProject:function(pid){
+    // a PM or worker can only step into a job the office assigned them to
+    if(!this.canOpenProject(pid)){ this.toast("You’re not assigned to that project"); return; }
     this.projectId=pid; try{ localStorage.setItem("eldorado_project",pid); }catch(e){}
     this.syncConfig(); this.cfgDraft=null; this.view="overview"; this.roomId=null; this.filter="all";
     window.scrollTo(0,0); this.render();
   },
   belongsToProject:function(rec){ return (rec && (rec.projectId||DEFAULT_PID)===this.projectId); },
+
+  /* ---- trades ---- */
+  /* the trade a project runs. Legacy El Dorado predates trades → plumbing. */
+  projTrade:function(p){ p=p||this.config; if(!p) return ""; if(p.trade) return p.trade; return (p.id===DEFAULT_PID)?"plumbing":""; },
+  projTradeName:function(p){ return tradeName(this.projTrade(p)); },
+  projTradeShort:function(p){ var t=tradeById(this.projTrade(p)); return t?t.short:""; },
+
+  /* ---- which projects a user belongs to ------------------------------
+     New records carry projects:[ids]. Legacy records carry a single
+     projectId — treat that as a one-project list so nobody loses access. */
+  userProjects:function(u){
+    if(!u) return [];
+    if(u.projects && u.projects.length) return u.projects.slice();
+    if(u.projectId) return [u.projectId];
+    return [DEFAULT_PID];
+  },
+  userInProject:function(u,pid){ return this.userProjects(u).indexOf(pid||this.projectId)>=0; },
+  /* every user record across every project (admin views + login matching) */
+  allUsers:function(){
+    var a=Object.keys(this.users).map(function(k){return App.users[k];}).filter(Boolean);
+    a.sort(function(x,y){return (x.createdTs||0)-(y.createdTs||0);}); return a;
+  },
+  /* names of the projects a user is on, for the admin list chips */
+  userProjectNames:function(u){
+    var self=this, byId={}; this.projectList().forEach(function(p){ byId[p.id]=self.projName(p); });
+    return this.userProjects(u).map(function(id){ return byId[id]||null; }).filter(Boolean);
+  },
+  /* projects the signed-in person is allowed to open. Office/admin sees all;
+     a PM or worker sees only the jobs they've been assigned to. Nobody signed
+     in (e.g. a QR deep link) still sees the list, but can't edit anything. */
+  visibleProjects:function(){
+    var all=this.projectList(); var s=this.session;
+    if(!s) return all;
+    if(s.role==="admin") return all;
+    var mine=s.projects&&s.projects.length?s.projects:(s.projectId?[s.projectId]:[]);
+    if(!mine.length) return all;
+    var out=all.filter(function(p){ return mine.indexOf(p.id)>=0; });
+    return out.length?out:all;
+  },
+  canOpenProject:function(pid){
+    var s=this.session; if(!s || s.role==="admin") return true;
+    var mine=s.projects&&s.projects.length?s.projects:(s.projectId?[s.projectId]:[]);
+    if(!mine.length) return true;
+    return mine.indexOf(pid)>=0;
+  },
   areaS:function(){ return (this.config&&this.config.areaSingular)||"Room"; },
   areaP:function(){ return (this.config&&this.config.areaPlural)||"Rooms"; },
 
@@ -1309,7 +1455,15 @@ var App = {
   },
 
   /* ---- session / auth (all scoped to the current project) ---- */
-  currentUser:function(){ var s=this.session; return (s && s.projectId===this.projectId)?s:null; },
+  /* A session is only "live" on a project the person is assigned to. Everywhere
+     else currentUser() is null, so every edit path (requireEdit, isManager,
+     isAdmin) closes automatically — a PM on Job A can look at nothing on Job B. */
+  currentUser:function(){
+    var s=this.session; if(!s) return null;
+    var mine=s.projects&&s.projects.length?s.projects:(s.projectId?[s.projectId]:[]);
+    if(!mine.length) return null;
+    return (mine.indexOf(this.projectId)>=0)?s:null;
+  },
   isAdmin:function(){ var u=this.currentUser(); return !!u && u.role==="admin"; },
   /* admin or project manager — can edit config + manage critical notes */
   isManager:function(){ var u=this.currentUser(); return !!u && (u.role==="admin" || u.role==="pm"); },
@@ -1317,7 +1471,8 @@ var App = {
   adminPinSet:function(){ return !!(this.config && this.config.admin && this.config.admin.pin); },
   canOpenConfig:function(){ if(!this.adminPinSet()) return true; return this.isManager(); },
   canRemove:function(user, authorId){ return user.role==="admin" || !authorId || user.id===authorId; },
-  usersList:function(){ var a=Object.keys(this.users).map(function(k){return App.users[k];}).filter(function(u){return App.belongsToProject(u);}); a.sort(function(x,y){return (x.createdTs||0)-(y.createdTs||0);}); return a; },
+  /* people on THIS project (a user may be on several) */
+  usersList:function(){ var a=Object.keys(this.users).map(function(k){return App.users[k];}).filter(function(u){return u && App.userInProject(u,App.projectId);}); a.sort(function(x,y){return (x.createdTs||0)-(y.createdTs||0);}); return a; },
   pendingUsers:function(){ return this.usersList().filter(function(u){return u.status==="pending";}); },
   approvedUsers:function(){ return this.usersList().filter(function(u){return u.status==="approved";}); },
   /* ---- critical comments + @mentions ---- */
@@ -1724,6 +1879,7 @@ var App = {
     m.f=m.f||{};
     var ta=el("critCmt"); if(ta) m.f.cmt=ta.value;
     var fr=el("critReply"); if(fr) m.f.fixDraft=fr.value;
+    var te=el("critTextEdit"); if(te) m.f.textDraft=te.value;
   },
 
   /* ---- material requests ---- */
@@ -2002,23 +2158,48 @@ var App = {
     return opts;
   },
   userByPin:function(pin){ return this.usersList().filter(function(u){return u.pin===pin;})[0]||null; },
-  usersByPin:function(pin){ return this.usersList().filter(function(u){return u.pin===pin;}); },
+  /* Password match looks across EVERY project, not just the one on screen: a PM
+     who runs three jobs types one password wherever the app happens to open,
+     and we route them into a job they're actually on. People on this project
+     are listed first so the "who's signing in?" picker stays predictable. */
+  usersByPin:function(pin){
+    var here=[], elsewhere=[];
+    this.allUsers().forEach(function(u){
+      if(u.pin!==pin) return;
+      if(App.userInProject(u,App.projectId)) here.push(u); else elsewhere.push(u);
+    });
+    return here.concat(elsewhere);
+  },
   isAdminPin:function(pin){ return !!(this.config && this.config.admin && this.config.admin.pin && this.config.admin.pin===pin); },
   pinTaken:function(pin){ if(this.config&&this.config.admin&&this.config.admin.pin===pin) return true; return !!this.userByPin(pin); },
   pinTakenBy:function(pin, exceptId){ if(this.config&&this.config.admin&&this.config.admin.pin===pin) return true; return this.usersList().some(function(u){ return u.pin===pin && u.id!==exceptId; }); },
-  setSession:function(s){ if(s && !s.projectId) s.projectId=this.projectId; this.session=s; try{ if(s) localStorage.setItem("eldorado_session",JSON.stringify(s)); else localStorage.removeItem("eldorado_session"); }catch(e){} },
+  setSession:function(s){
+    if(s){
+      if(!s.projectId) s.projectId=this.projectId;
+      // every session carries the full list of jobs it may open
+      if(!s.projects || !s.projects.length) s.projects=[s.projectId];
+    }
+    this.session=s; try{ if(s) localStorage.setItem("eldorado_session",JSON.stringify(s)); else localStorage.removeItem("eldorado_session"); }catch(e){}
+  },
   logout:function(){ this.setSession(null); if(this.view==="config"){ this.view="overview"; this.cfgDraft=null; } this.toast("Logged out"); this.render(); },
   /* if a logged-in field user was removed or un-approved elsewhere, drop their session */
   reconcileSession:function(){
     var s=this.session; if(!s || s.role==="admin") return;
-    if(s.projectId!==this.projectId) return; // session is for another project; ignore here
     var u=this.users[s.id];
-    if(!u){ this.setSession(null); return; } // denied/removed -> logged out
-    // keep the live session in sync with role/name/company/approval the admin may have changed
-    var role=(u.role==="pm"?"pm":"field"); var prov=(u.status!=="approved");
-    if(s.role!==role || s.name!==u.name || s.company!==u.company || s.provisional!==prov){
-      s.role=role; s.name=u.name; s.company=u.company; s.provisional=prov; this.setSession(s);
+    if(!u){
+      // the record is gone only if we've actually loaded users for it
+      if(Object.keys(this.users).length){ this.setSession(null); }
+      return;
     }
+    // keep the live session in sync with role/name/company/approval/project
+    // assignment the office may have changed while they were signed in
+    var role=(u.role==="pm"?"pm":"field"); var prov=(u.status!=="approved");
+    var ps=this.userProjects(u); var changed=false;
+    if((s.projects||[]).join("|")!==ps.join("|")){ s.projects=ps; changed=true; }
+    if(s.role!==role || s.name!==u.name || s.company!==u.company || s.provisional!==prov){
+      s.role=role; s.name=u.name; s.company=u.company; s.provisional=prov; changed=true;
+    }
+    if(changed) this.setSession(s);
   },
   /* returns the current user if allowed to edit, else opens login and returns null */
   requireEdit:function(){
@@ -2033,9 +2214,12 @@ var App = {
     pin=(pin||"").trim();
     var adminOnly=this.modal&&this.modal.adminOnly;
     if(!validPw(pin)){ this.modal.msg={t:"err",m:"Enter your password."}; this.render(); return; }
-    // admin?
+    // admin? The office password unlocks every project that shares it, so one
+    // office login manages users and settings across all the jobs at once.
     if(this.config && this.config.admin && this.config.admin.pin && pin===this.config.admin.pin){
-      this.setSession({ id:"admin", name:(this.config.admin.name||"Office"), company:"Office", role:"admin" });
+      var adminPids=this.projectList().filter(function(p){ return p && p.admin && p.admin.pin===pin; }).map(function(p){ return p.id; });
+      if(adminPids.indexOf(this.projectId)<0) adminPids.push(this.projectId);
+      this.setSession({ id:"admin", name:(this.config.admin.name||"Office"), company:"Office", role:"admin", projects:adminPids });
       this.closeModal(); this.toast("Signed in as office");
       if(adminOnly) this.go("config"); else this.render();
       return;
@@ -2052,8 +2236,17 @@ var App = {
     if(!u){ return; }
     if(u.status==="denied"){ if(this.modal){ this.modal.msg={t:"err",m:"This login was declined. Check with the office."}; } this.render(); return; }
     var prov=(u.status!=="approved");
-    this.setSession({ id:u.id, name:u.name, company:u.company, role:(u.role==="pm"?"pm":"field"), provisional:prov });
+    var mine=this.userProjects(u);
+    this.setSession({ id:u.id, name:u.name, company:u.company, role:(u.role==="pm"?"pm":"field"), provisional:prov,
+                      projectId:(mine.indexOf(this.projectId)>=0?this.projectId:mine[0]), projects:mine });
     this.closeModal();
+    // signed in while looking at a job they're not on → drop them into one they are
+    if(mine.indexOf(this.projectId)<0 && mine[0]){
+      var landed=this.projects[mine[0]];
+      this.setProject(mine[0]);
+      this.toast("Signed in — "+u.name+" · "+(landed?this.projName(landed):"your project"));
+      return;
+    }
     var myN=this.myCriticals().length; var menN=this.myMentions().length;
     this.toast(prov?("Signed in — "+u.name+" (pending approval)"):("Signed in — "+u.name+(u.role==="pm"?" (Project Manager)":"")));
     if(myN){ var self=this; setTimeout(function(){ self.toast(myN===1?"1 critical is assigned to you":myN+" criticals are assigned to you"); },1750); }
@@ -2067,12 +2260,13 @@ var App = {
     if(!company){ this.modal.msg={t:"err",m:"Enter your company."}; this.render(); return; }
     if(!validPw(pin)){ this.modal.msg={t:"err",m:"Pick a password (at least 4 characters)."}; this.render(); return; }
     if(this.isAdminPin(pin)){ this.modal.msg={t:"err",m:"That password is reserved by the office — pick a different one."}; this.render(); return; }
-    var u={ id:uid("u"), name:name, company:company, pin:pin, status:"pending", role:"field", projectId:this.projectId, createdTs:Date.now(),
+    var u={ id:uid("u"), name:name, company:company, pin:pin, status:"pending", role:"field",
+            projectId:this.projectId, projects:[this.projectId], createdTs:Date.now(),
             createdWhen:new Date().toLocaleDateString(undefined,{month:"short",day:"numeric"}) };
     Store.saveUser(u);
     this.logEvent("user_request","Requested access", "", {name:name, company:company, role:"field"});
     // let them start working right away; the office confirms them after
-    this.setSession({ id:u.id, name:name, company:company, role:"field", provisional:true });
+    this.setSession({ id:u.id, name:name, company:company, role:"field", provisional:true, projects:[this.projectId] });
     this.modal={type:"submitted", name:name};
     this.render();
   },
@@ -2081,26 +2275,62 @@ var App = {
     if(!this.modal || this.modal.type!=="edituser" || !this.isAdmin()){ this.closeModal(); return; }
     var u=this.users[this.modal.uid]; if(!u){ this.closeModal(); return; }
     var nm=el("euName").value.trim(), co=el("euCompany").value.trim(), pw=el("euPass").value.trim();
+    this.modal.f={name:nm,company:co,pass:pw}; this.modal.pids=this._assignedPids();
     if(!nm){ this.modal.msg={t:"err",m:"Enter a name."}; this.render(); return; }
     if(!validPw(pw)){ this.modal.msg={t:"err",m:"Password must be at least 4 characters."}; this.render(); return; }
     if(this.isAdminPin(pw)){ this.modal.msg={t:"err",m:"That password is reserved by the office — pick another."}; this.render(); return; }
     var role=(this.modal.role==="pm")?"pm":"field";
-    u.name=nm; u.company=co; u.pin=pw; u.role=role; Store.saveUser(u);
-    if(this.session && this.session.id===u.id){ this.session.name=nm; this.session.company=co; this.session.pin=pw; this.session.role=role; this.setSession(this.session); }
-    this.logEvent("user_edit","Edited login for "+nm+" — "+(role==="pm"?"Project Manager":"Worker"));
+    var pids=this.modal.pids||[];
+    if(!pids.length){ this.modal.msg={t:"err",m:"Pick at least one project for this person."}; this.render(); return; }
+    u.name=nm; u.company=co; u.pin=pw; u.role=role; u.projects=pids; u.projectId=pids[0]; Store.saveUser(u);
+    if(this.session && this.session.id===u.id){ this.session.name=nm; this.session.company=co; this.session.pin=pw; this.session.role=role; this.session.projects=pids.slice(); this.setSession(this.session); }
+    this.logEvent("user_edit","Edited login for "+nm+" — "+(role==="pm"?"Project Manager":"Worker")+" · "+pids.length+" project"+(pids.length===1?"":"s"));
     this.closeModal(); this.toast("Saved — "+nm); setTimeout(function(){App.render();},30);
+  },
+  /* read the project checkboxes out of the add/edit user modal */
+  _assignedPids:function(){
+    var out=[]; var boxes=document.querySelectorAll(".assign-list input[data-pid]");
+    for(var i=0;i<boxes.length;i++){ if(boxes[i].checked) out.push(boxes[i].getAttribute("data-pid")); }
+    return out;
+  },
+  /* checkbox list of every project, for assigning a user (admin only) */
+  _assignHtml:function(checked){
+    var self=this; var list=this.projectList(); var sel=checked||[];
+    if(!list.length) return '';
+    var rows=list.map(function(p){
+      var on=sel.indexOf(p.id)>=0;
+      var tn=self.projTradeName(p);
+      return '<label><input type="checkbox" data-pid="'+esc(p.id)+'"'+(on?' checked':'')+'>'+
+        '<span>'+esc(self.projName(p))+'</span>'+
+        '<span class="al-sub">'+esc(tn||"—")+'</span></label>';
+    }).join('');
+    return '<label class="lbl">Projects this person can open</label>'+
+      '<div class="assign-list">'+rows+'</div>'+
+      '<div class="small muted" style="margin:-2px 0 8px">They see and edit only the jobs ticked here. Everything else stays hidden.</div>';
   },
   /* create a new blank project and switch into it */
   doCreateProject:function(){
     var nm=el("npName").value.trim(); var sing=(el("npSing").value.trim()||"Room"); var plur=(el("npPlur").value.trim()|| (sing+"s"));
-    if(!nm){ this.modal.msg={t:"err",m:"Enter a project name."}; this.render(); return; }
-    var proj={ id:uid("proj"), areaSingular:sing, areaPlural:plur, job:{name:nm,number:"",address:""}, template:[], admin:{pin:"",name:""}, createdTs:Date.now() };
+    if(!nm){ this.modal.f={name:nm}; this.modal.msg={t:"err",m:"Enter a project name."}; this.render(); return; }
+    if(!this.modal.trade){ this.modal.f={name:nm}; this.modal.msg={t:"err",m:"Pick the trade this job is for — “Other” starts blank."}; this.render(); return; }
+    var trade=this.modal.trade;
+    // the trade only seeds the starter task list — every line stays editable
+    var tpl=templateForTrade(trade);
+    var proj={ id:uid("proj"), areaSingular:sing, areaPlural:plur, trade:trade,
+               job:{name:nm,number:"",address:""}, template:tpl, admin:{pin:"",name:""}, createdTs:Date.now() };
+    // carry the office password over so the same admin login opens the new job
+    if(this.config && this.config.admin && this.config.admin.pin && this.isAdmin()){
+      proj.admin={ pin:this.config.admin.pin, name:(this.config.admin.name||"") };
+    }
     Store.saveProject(proj);
+    // the office session gains the new project immediately
+    if(this.session && this.session.role==="admin"){
+      this.session.projects=(this.session.projects||[]).concat([proj.id]); this.setSession(this.session);
+    }
     this.closeModal();
-    // switch into the new (blank) project, then log the creation there
     this.setProject(proj.id);
-    this.logEvent("config","Created project “"+nm+"”");
-    this.toast("Project created — set it up in Config");
+    this.logEvent("config","Created project “"+nm+"”"+(tradeName(trade)?" · "+tradeName(trade):""));
+    this.toast(tpl.length?("Project created — "+tpl.length+" starter tasks loaded"):"Project created — add tasks in Config");
   },
   /* report a critical issue from the dashboard (pick area, text, photo) */
   doNewCrit:function(){
@@ -2137,14 +2367,19 @@ var App = {
     if(!this.modal || this.modal.type!=="adduser" || !this.isAdmin()){ this.closeModal(); return; }
     var nm=el("auName").value.trim(), co=el("auCompany").value.trim(), pw=el("auPass").value.trim();
     var role=(this.modal.role==="pm")?"pm":"field";
+    // hold on to what they typed + ticked so an error message doesn't wipe the form
+    this.modal.f={name:nm,company:co,pass:pw}; this.modal.pids=this._assignedPids();
     if(!nm){ this.modal.msg={t:"err",m:"Enter a name."}; this.render(); return; }
     if(!validPw(pw)){ this.modal.msg={t:"err",m:"Password must be at least 4 characters."}; this.render(); return; }
     if(this.isAdminPin(pw)){ this.modal.msg={t:"err",m:"That password is reserved by the office — pick another."}; this.render(); return; }
-    var u={ id:uid("u"), name:nm, company:co, pin:pw, role:role, status:"approved", projectId:this.projectId, createdTs:Date.now(), approvedTs:Date.now(),
+    var pids=this.modal.pids||[];
+    if(!pids.length){ this.modal.msg={t:"err",m:"Pick at least one project for this person."}; this.render(); return; }
+    var u={ id:uid("u"), name:nm, company:co, pin:pw, role:role, status:"approved",
+            projectId:pids[0], projects:pids, createdTs:Date.now(), approvedTs:Date.now(),
             createdWhen:new Date().toLocaleDateString(undefined,{month:"short",day:"numeric"}) };
     Store.saveUser(u);
-    this.logEvent("user_add","Added user "+nm+(co?" ("+co+")":"")+" — "+(role==="pm"?"Project Manager":"Worker"));
-    this.closeModal(); this.toast("Added "+nm); setTimeout(function(){App.render();},30);
+    this.logEvent("user_add","Added user "+nm+(co?" ("+co+")":"")+" — "+(role==="pm"?"Project Manager":"Worker")+" · "+pids.length+" project"+(pids.length===1?"":"s"));
+    this.closeModal(); this.toast("Added "+nm+" — "+pids.length+" project"+(pids.length===1?"":"s")); setTimeout(function(){App.render();},30);
   },
   /* reply / mark resolved a critical note (any signed-in user) */
   doSaveCrit:function(resolve, setLane){
@@ -2243,7 +2478,7 @@ var App = {
   /* seed config on first run */
   ensureConfig:function(){
     if(this.config) return this.config;
-    return { id:this.projectId||DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms", job:{ name: CFG.defaultJobName||"El Dorado Hospital", number:"", address:"" }, template: defaultTemplate(), admin:{ pin:"", name:"" } };
+    return { id:this.projectId||DEFAULT_PID, areaSingular:"Room", areaPlural:"Rooms", trade:"plumbing", job:{ name: CFG.defaultJobName||"El Dorado Hospital", number:"", address:"" }, template: defaultTemplate(), admin:{ pin:"", name:"" } };
   },
 
   template:function(){ return (this.config && this.config.template) || []; },
@@ -2887,7 +3122,11 @@ var App = {
     }
     if(!this.config){ return '<div class="wrap"><div class="empty">Loading&hellip;</div></div>'; }
     var rooms=this.roomList(); var tpl=this.template(); var aS=this.areaS(), aP=this.areaP();
-    var projBar='<button class="proj-bar" data-action="go" data-view="projects"><span class="pb-label">Project</span><span class="pb-name">'+esc(this.projName())+'</span><span class="pb-switch">Switch &#9662;</span></button>';
+    var pbTrade=tradeById(this.projTrade());
+    var nProj=this.visibleProjects().length;
+    var projBar='<button class="proj-bar" data-action="go" data-view="projects"><span class="pb-label">Project</span><span class="pb-name">'+esc(this.projName())+
+      (pbTrade&&pbTrade.id!=="custom"?'<span class="trade-badge" style="background:'+esc(pbTrade.color)+'">'+esc(pbTrade.short)+'</span>':'')+'</span>'+
+      (nProj>1?'<span class="pb-switch">Switch &#9662;</span>':'')+'</button>';
     if(rooms.length===0){
       return '<div class="wrap">'+projBar+'<div class="summary"><div class="sub">'+esc(this.projName())+'</div>'+
         '<div class="big">0</div><div class="sub">'+esc(aP.toLowerCase())+' added yet</div></div>'+
@@ -2962,10 +3201,11 @@ var App = {
       out += this._critBoardHtml(critItems);
     }
 
-    // trades — % complete per category (the owner's first question, now on the front page)
+    // % complete per phase of this project's task list (the owner's first question)
     if(tpl.length && rooms.length){
+      var phaseHdr=(this.projTradeName()&&this.projTrade()!=="custom")?(this.projTradeName()+" — % complete"):"Phases — % complete";
       out += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 6px;border-bottom:1px solid var(--hairline);padding-bottom:3px">'+
-        '<span class="section-label" style="margin:0;border:none;padding:0">Trades — % complete</span>'+
+        '<span class="section-label" style="margin:0;border:none;padding:0">'+esc(phaseHdr)+'</span>'+
         (this.isAdmin()?'<button class="btn btn-sm" style="min-height:30px;padding:5px 9px;flex:none" data-action="go" data-view="admin">Forecast &rarr;</button>':'')+
         '</div>';
       tpl.forEach(function(task){
@@ -3361,18 +3601,22 @@ var App = {
         out += '<div class="small muted" style="margin:8px 0 2px">Approved users ('+appr.length+')</div>';
         appr.forEach(function(u){
           var isPM=u.role==="pm";
+          var pnames=App.userProjectNames(u);
+          var chips=pnames.length
+            ? '<div class="proj-chips">'+pnames.map(function(n){return '<span class="pchip">'+esc(n)+'</span>';}).join('')+'</div>'
+            : '<div class="proj-chips"><span class="pchip none">no project</span></div>';
           out += '<div class="user-row"><div class="u-main"><div class="u-name">'+esc(u.name)+(isPM?' <span class="role-badge">PM</span>':'')+'</div>'+
-            '<div class="u-sub">'+esc(u.company||"—")+'</div></div>'+
+            '<div class="u-sub">'+esc(u.company||"—")+'</div>'+chips+'</div>'+
             '<button class="role-btn'+(isPM?' on':'')+'" data-action="togglerole" data-uid="'+esc(u.id)+'" title="Switch Worker / Project Manager">'+(isPM?'PM':'Worker')+'</button>'+
             '<button class="role-btn" data-action="edituser" data-uid="'+esc(u.id)+'" title="Edit name / company / password">Edit</button>'+
             '<button class="icon-btn danger" data-action="removeuser" data-uid="'+esc(u.id)+'">&times;</button></div>';
         });
       }
       out += '<button class="btn btn-sm btn-block" style="margin-top:8px" data-action="adduser">+ Add user manually</button>';
-      out += '<div class="small muted" style="margin:6px 0 2px">Add a user directly (name, company, password, role) — they’re approved right away. Or tap a user’s role to switch <b>Worker ⇄ PM</b>. Project Managers can edit rooms, tasks &amp; critical items but can’t manage users.</div>';
+      out += '<div class="small muted" style="margin:6px 0 2px">Add a user directly (name, company, password, role, <b>projects</b>) — they’re approved right away. Tap a user’s role to switch <b>Worker ⇄ PM</b>, or Edit to change which jobs they can open. A Project Manager can edit rooms, tasks &amp; critical items <b>on their assigned projects only</b> — other jobs don’t even appear for them. Only the office can manage users.</div>';
     } else {
       out += '<div class="section-label">Project Manager</div>'+
-        '<div class="small muted" style="margin-bottom:6px">You can edit job info, rooms, the task template, and manage critical items. Adding and approving users is admin-only.</div>';
+        '<div class="small muted" style="margin-bottom:6px">You can edit job info, '+esc(this.areaP().toLowerCase())+', the task list, and manage critical items <b>on this project</b>. Jobs you’re not assigned to are hidden. Adding and approving users is office-only.</div>';
     }
 
     var aS=d.areaSingular||"Room", aP=d.areaPlural||"Rooms";
@@ -3385,8 +3629,19 @@ var App = {
       '<label class="lbl">Working days</label>'+
       '<div class="row-2" style="margin:2px 0 2px"><label class="toggle" style="flex:none"><input type="checkbox" id="workSat"'+(d.workSat?' checked':'')+'> Saturdays worked</label>'+
       '<label class="toggle" style="flex:none"><input type="checkbox" id="workSun"'+(d.workSun?' checked':'')+'> Sundays worked</label></div>'+
-      '<div class="small muted" style="margin-bottom:6px">Checked days count toward the forecast&rsquo;s working days and lose the gray shading on the schedule charts. Saves with the button at the bottom.</div>'+
-      '<button class="btn btn-sm" data-action="go" data-view="projects">Switch project</button>';
+      '<div class="small muted" style="margin-bottom:6px">Checked days count toward the forecast&rsquo;s working days and lose the gray shading on the schedule charts. Saves with the button at the bottom.</div>';
+
+    // ---- trade (label + starter task list) ----
+    var curTrade=d.trade||this.projTrade(d);
+    out += '<label class="lbl">Trade</label>'+
+      '<div class="trade-grid">'+TRADES.map(function(tr){
+        return '<button class="'+((curTrade===tr.id)?"on":"")+'" data-action="setcfgtrade" data-t="'+esc(tr.id)+'">'+esc(tr.name)+'</button>';
+      }).join('')+'</div>'+
+      '<div class="small muted" style="margin:2px 0 6px">The trade is a label — it doesn’t lock anything. Your task list below stays exactly as you’ve built it. Save it with <b>Save template &amp; job info</b> at the bottom.</div>';
+    if(tradeById(curTrade) && tradeById(curTrade).tasks.length){
+      out += '<button class="btn btn-sm btn-block" data-action="loadtradetasks">Replace task list with the '+esc(tradeName(curTrade))+' starter list</button>';
+    }
+    out += '<button class="btn btn-sm" style="margin-top:8px" data-action="go" data-view="projects">Switch project</button>';
 
     // Areas
     out += '<div class="section-label">'+esc(aP)+' ('+(this._draftRooms().length)+')</div>';
@@ -3554,20 +3809,31 @@ var App = {
 
   /* ---------- projects list / switcher ---------- */
   renderProjects:function(){
-    var self=this; var list=this.projectList();
+    var self=this; var list=this.visibleProjects(); var all=this.projectList();
+    var s=this.session; var scoped=!!(s && s.role!=="admin" && all.length>list.length);
+    var canAdd=(!s || s.role==="admin");
     var out='<div class="wrap">';
-    out+='<div class="small muted" style="margin-bottom:8px">Pick a project to work in, or create a new one. Each project has its own areas, tasks, users, and admin.</div>';
+    out+='<div class="small muted" style="margin-bottom:8px">'+
+      (scoped?'These are the projects you’re assigned to. Other jobs are managed by the office.'
+             :'Pick a project to work in, or create a new one. Each project has its own trade, areas, tasks, users, and admin.')+'</div>';
+    if(!list.length){
+      out+='<div class="empty">You’re not assigned to any project yet — check with the office.</div></div>';
+      return out;
+    }
     list.forEach(function(p){
       var cur=p.id===self.projectId;
       var pRooms=Object.keys(self.rooms).map(function(k){return self.rooms[k];}).filter(function(r){return (r.projectId||DEFAULT_PID)===p.id;});
       var tpl=p.template||[]; var d=0,t=0; pRooms.forEach(function(r){ var u=roomUnits(tpl,r); d+=u.done; t+=u.total; });
       var pct=t?Math.round(d/t*100):0;
+      var tr=tradeById(self.projTrade(p));
       out+='<button class="proj-card'+(cur?' on':'')+'" data-action="switchproject" data-pid="'+esc(p.id)+'">'+
-        '<div class="pc-main"><div class="pc-name">'+esc(self.projName(p))+(cur?'<span class="pc-cur">Current</span>':'')+'</div>'+
-        '<div class="pc-sub">'+pRooms.length+' '+esc(((p.areaPlural||"Rooms")).toLowerCase())+' · '+(p.job&&p.job.number?'Job '+esc(p.job.number)+' · ':'')+pct+'% complete</div></div>'+
+        '<div class="pc-main"><div class="pc-name">'+esc(self.projName(p))+
+        (tr&&tr.id!=="custom"?'<span class="trade-badge" style="background:'+esc(tr.color)+'">'+esc(tr.short)+'</span>':'')+
+        (cur?'<span class="pc-cur">Current</span>':'')+'</div>'+
+        '<div class="pc-sub">'+(tr?esc(tr.name)+' · ':'')+pRooms.length+' '+esc(((p.areaPlural||"Rooms")).toLowerCase())+' · '+(p.job&&p.job.number?'Job '+esc(p.job.number)+' · ':'')+pct+'% complete</div></div>'+
         '<span class="pc-pct">'+pct+'%</span></button>';
     });
-    out+='<button class="btn btn-primary btn-block" style="margin-top:12px" data-action="newproject">+ New project</button>';
+    if(canAdd) out+='<button class="btn btn-primary btn-block" style="margin-top:12px" data-action="newproject">+ New project</button>';
     out+='</div>';
     return out;
   },
@@ -4207,7 +4473,9 @@ var App = {
       if(this.isManager()) mrow("log","Activity log",mi('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'));
       if(this.isAdmin()) mrow("admin","Admin dashboard",mi('<path d="M4 19V10M10 19V5M16 19v-8M20 19H4"/>'));
       if(this.isManager()||!this.currentUser()) mrow("config","Config",mi('<circle cx="12" cy="12" r="3"/><path d="M12 4v2.5M12 17.5V20M4 12h2.5M17.5 12H20M6.3 6.3l1.8 1.8M15.9 15.9l1.8 1.8M17.7 6.3l-1.8 1.8M8.1 15.9l-1.8 1.8"/>'));
-      mrow("projects","Switch project",mi('<path d="M8 7h13M8 12h13M8 17h13"/><path d="M3 7l1.5 1.5L7 6M3 12l1.5 1.5L7 11M3 17l1.5 1.5L7 16"/>'));
+      // only worth showing when they actually have more than one job to switch to
+      if(this.visibleProjects().length>1 || !this.currentUser() || this.isAdmin())
+        mrow("projects","Switch project",mi('<path d="M8 7h13M8 12h13M8 17h13"/><path d="M3 7l1.5 1.5L7 6M3 12l1.5 1.5L7 11M3 17l1.5 1.5L7 16"/>'));
       host.innerHTML='<div class="modal wide" data-stop="1"><h3>More</h3>'+mrows+
         '<button class="btn btn-block btn-sm" style="margin-top:10px" data-action="closemodal">Close</button></div>';
     } else if(m.type==="pickuser"){
@@ -4227,6 +4495,7 @@ var App = {
         '<div class="field"><label class="lbl">Password</label><input class="in" id="auPass" autocomplete="off" autocapitalize="off" value="'+esc(af.pass||"")+'" placeholder="at least 4 characters"></div>'+
         '<label class="lbl">Permission</label>'+
         '<div class="seg" style="margin-bottom:6px"><button class="'+(arole==="field"?"on":"")+'" data-action="setrole" data-r="field">Worker</button><button class="'+(arole==="pm"?"on":"")+'" data-action="setrole" data-r="pm">Project Manager</button></div>'+
+        this._assignHtml(m.pids||[this.projectId])+
         amsg+
         '<button class="btn btn-primary btn-block" style="margin-top:6px" data-action="saveadduser">Add user</button>'+
         '<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="closemodal">Cancel</button></div>';
@@ -4238,6 +4507,7 @@ var App = {
         '<div class="field"><label class="lbl">Password</label><input class="in" id="euPass" autocomplete="off" autocapitalize="off" value="'+esc(ef.pass!==undefined?ef.pass:(eu.pin||""))+'"></div>'+
         '<label class="lbl">Permission</label>'+
         '<div class="seg" style="margin-bottom:6px"><button class="'+(erole==="field"?"on":"")+'" data-action="setrole" data-r="field">Worker</button><button class="'+(erole==="pm"?"on":"")+'" data-action="setrole" data-r="pm">Project Manager</button></div>'+
+        this._assignHtml(m.pids||this.userProjects(eu))+
         emsg+
         '<button class="btn btn-primary btn-block" style="margin-top:6px" data-action="saveuser">Save</button>'+
         '<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="closemodal">Cancel</button></div>';
@@ -4320,7 +4590,12 @@ var App = {
         // ---- THE ISSUE (red box): description + photos of the item ----
         '<div class="crit-box issue">'+
         '<div class="section-label" style="color:var(--error);border-color:#f0c9c4">The issue</div>'+
-        '<div class="crit-text">'+esc(cn.text||"")+'</div>'+
+        (m.editText
+          ? '<div class="field" style="margin-top:6px"><textarea class="in" id="critTextEdit" rows="3">'+esc((m.f&&m.f.textDraft!=null)?m.f.textDraft:(cn.text||""))+'</textarea></div>'+
+            '<div class="row-2" style="gap:6px;margin-top:2px"><button class="btn btn-primary btn-sm" style="flex:1" data-action="savecrittext">Save text</button>'+
+            '<button class="btn btn-sm" style="flex:1" data-action="canceledittext">Cancel</button></div>'
+          : '<div class="crit-text">'+esc(cn.text||"")+'</div>'+
+            ((this.isManager()||((this.currentUser()||{}).id===cn.byId))?'<button class="cmt-link" data-action="editcrittext">&#9998; Edit issue text</button>':''))+
         '<div class="crit-by">Reported by '+(cn.byName?esc(cn.byName)+(cn.byCompany?" ("+esc(cn.byCompany)+")":""):"—")+(cn.when?" · "+esc(cn.when):"")+'</div>'+
         (this.isManager()
           ? '<div class="row-2" style="margin-top:8px"><div class="field"><label class="lbl">Assigned to</label><select class="in" id="critAssign">'+this._assignOptions(cn.assignedId||"")+'</select></div>'+
@@ -4369,10 +4644,20 @@ var App = {
         '<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="closemodal">Cancel</button></div>';
     } else if(m.type==="newproject"){
       var nmsg=m.msg?'<div class="msg '+m.msg.t+'">'+esc(m.msg.m)+'</div>':''; var nf=m.f||{}; var nsing=m.sing||"Room", nplur=m.plur||"Rooms";
+      var ntrade=m.trade||"";
       function presetBtn(l,sg,pl){ return '<button class="'+((nsing===sg)?"on":"")+'" data-action="presetarea" data-sing="'+sg+'" data-plur="'+pl+'">'+l+'</button>'; }
+      var tradeBtns=TRADES.map(function(tr){
+        var n=tr.tasks.length;
+        return '<button class="'+((ntrade===tr.id)?"on":"")+'" data-action="settrade" data-t="'+esc(tr.id)+'">'+esc(tr.name)+
+          '<span class="tg-sub">'+(n?(n+" starter task"+(n===1?"":"s")):"start blank")+'</span></button>';
+      }).join('');
+      var tradePicked=tradeById(ntrade);
       host.innerHTML='<div class="modal wide" data-stop="1"><h3>New project</h3>'+
-        '<div class="small muted" style="text-align:center">A blank slate — you add areas, tasks, and users after.</div>'+
+        '<div class="small muted" style="text-align:center">Pick the trade and we’ll load a starter task list — you can change every line after.</div>'+
         '<div class="field" style="margin-top:10px"><label class="lbl">Project name</label><input class="in" id="npName" value="'+esc(nf.name||"")+'" placeholder="e.g. Mercy Hospital — Tower B"></div>'+
+        '<label class="lbl">Trade</label>'+
+        '<div class="trade-grid">'+tradeBtns+'</div>'+
+        (tradePicked&&tradePicked.tasks.length?'<div class="small muted" style="margin:2px 0 6px">'+esc(tradePicked.name)+' starts with: '+esc(tradePicked.tasks.map(function(p){return p[0];}).join(" · "))+'</div>':'')+
         '<label class="lbl">Areas are called</label>'+
         '<div class="seg" style="flex-wrap:wrap">'+presetBtn("Rooms","Room","Rooms")+presetBtn("Floors","Floor","Floors")+presetBtn("Buildings","Building","Buildings")+presetBtn("Areas","Area","Areas")+presetBtn("Units","Unit","Units")+'</div>'+
         '<div class="row-2" style="margin-top:8px"><div class="field"><label class="lbl">Singular</label><input class="in" id="npSing" value="'+esc(nsing)+'"></div>'+
@@ -4466,8 +4751,39 @@ var App = {
         var gv3=function(id){var e2=el(id);return e2?e2.value:"";};
         this.modal.f={name:gv3("npName")};
         this.modal.sing=t.getAttribute("data-sing"); this.modal.plur=t.getAttribute("data-plur"); this.render(); break;
+      case "settrade":
+        if(this.modal && this.modal.type==="newproject"){
+          var gvT=function(id){var e2=el(id);return e2?e2.value:"";};
+          this.modal.f={name:gvT("npName")};
+          if(el("npSing")) this.modal.sing=gvT("npSing")||this.modal.sing;
+          if(el("npPlur")) this.modal.plur=gvT("npPlur")||this.modal.plur;
+          this.modal.trade=t.getAttribute("data-t"); this.modal.msg=null; this.render();
+        } break;
       case "savenewproject": this.doCreateProject(); break;
       case "switchproject": this.setProject(t.getAttribute("data-pid")); break;
+      /* admin: change a project's trade (relabels; offers to load starter tasks) */
+      case "setcfgtrade":
+        if(this.isManager() && this.cfgDraft){
+          this._commitDraftInputs();
+          this.cfgDraft.trade=t.getAttribute("data-t"); this.render();
+        } break;
+      case "loadtradetasks":
+        if(this.isManager() && this.cfgDraft){
+          var ltId=this.cfgDraft.trade||this.projTrade();
+          var ltTpl=templateForTrade(ltId);
+          if(!ltTpl.length){ this.toast("That trade has no starter list"); break; }
+          var hadWork=this._draftRooms().some(function(r){ return r.done && Object.keys(r.done).length; });
+          var warn="Load the "+tradeName(ltId)+" starter task list?\n\nThis REPLACES the current task list"+
+                   (hadWork?"\n\n⚠ Work is already checked off against the current tasks — those check-offs will no longer line up.":"")+".";
+          if(!confirm(warn)) break;
+          this._commitDraftInputs();
+          this.cfgDraft.template=ltTpl;
+          this.config=JSON.parse(JSON.stringify(this.cfgDraft));
+          Store.saveProject(this.config).then(function(){
+            App.logEvent("config","Loaded "+tradeName(ltId)+" starter task list");
+            App.toast(tradeName(ltId)+" tasks loaded"); App.render();
+          });
+        } break;
 
       /* auth */
       case "login": this.openLogin(false); break;
@@ -4999,6 +5315,8 @@ var App = {
           var gv2=function(id){ var e2=el(id); return e2?e2.value:""; };
           if(this.modal.type==="adduser") this.modal.f={name:gv2("auName"),company:gv2("auCompany"),pass:gv2("auPass")};
           else if(this.modal.type==="edituser") this.modal.f={name:gv2("euName"),company:gv2("euCompany"),pass:gv2("euPass")};
+          // keep the project ticks through the re-render
+          if(document.querySelector(".assign-list")) this.modal.pids=this._assignedPids();
           this.modal.role=t.getAttribute("data-r"); this.render();
         } break;
 
@@ -5012,6 +5330,32 @@ var App = {
         this.doSaveCrit(false); break;
       case "resolvecrit":
         this.doSaveCrit(true); break;
+      case "editcrittext":
+        if(!this.modal || this.modal.type!=="critical") break;
+        var uEt=this.requireEdit(); if(!uEt) break;
+        this._critPreserve();
+        this.modal.editText=true; this.render(); break;
+      case "canceledittext":
+        if(!this.modal || this.modal.type!=="critical") break;
+        this._critPreserve();
+        this.modal.editText=false;
+        if(this.modal.f) delete this.modal.f.textDraft;
+        this.render(); break;
+      case "savecrittext":
+        if(!this.modal || this.modal.type!=="critical") break;
+        var uSt=this.requireEdit(); if(!uSt) break;
+        var etRoom=this.rooms[this.modal.roomId]; if(!etRoom) break;
+        var etN=(etRoom.notes||[]).filter(function(x){return x.id===App.modal.noteId;})[0]; if(!etN) break;
+        if(!(this.isManager() || uSt.id===etN.byId)){ this.toast("Only the office or the reporter can edit this"); break; }
+        var etVal=(el("critTextEdit")?el("critTextEdit").value:"").trim();
+        if(!etVal){ this.toast("The issue text can’t be empty"); break; }
+        this._critPreserve();
+        etN.text=etVal;
+        Store.saveRoom(etRoom);
+        this.logEvent("crit_edit","Edited a critical issue description", this.areaS()+" "+etRoom.number);
+        this.modal.editText=false;
+        if(this.modal.f) delete this.modal.f.textDraft;
+        this.toast("Issue text updated"); this.render(); break;
       case "delnewcritphoto":
         if(this.modal && this.modal.type==="newcrit"){
           var selR2=el("ncRoom"); if(selR2) this.modal.roomId=selR2.value;
