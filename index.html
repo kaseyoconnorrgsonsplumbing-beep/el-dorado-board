@@ -956,7 +956,9 @@ var Store = {
   compressImage:function(file){
     return new Promise(function(res){
       try{
-        if(!file || !file.type || file.type.indexOf("image/")!==0 || file.type==="image/gif"){ res(file); return; }
+        // phones sometimes hand over photos with a blank type — still try to shrink them
+        var ft=(file&&file.type)||"";
+        if(!file || (ft && ft.indexOf("image/")!==0) || ft==="image/gif"){ res(file); return; }
         var url=URL.createObjectURL(file); var img=new Image();
         img.onload=function(){
           var MAX=1600, w=img.width, h=img.height;
@@ -972,21 +974,60 @@ var Store = {
     });
   },
   /* upload with optional progress callback onProg(0..1) */
+  /* best-guess image type when the phone leaves file.type blank */
+  _imgType:function(f, name){
+    var t=(f&&f.type)||""; if(t && t!=="application/octet-stream") return t;
+    var ext=((name||"").split(".").pop()||"").toLowerCase();
+    return ({jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",heic:"image/heic",heif:"image/heif",webp:"image/webp",gif:"image/gif"})[ext]||"image/jpeg";
+  },
+  /* upload with optional progress callback onProg(0..1).
+     Always sends an explicit image content type, retries once, and on failure
+     shows the reason on screen + writes a photo_fail row to the activity log
+     (device, file type/size, Firebase error code) so the office can see why. */
   uploadPhoto:function(roomId,file,onProg){
     var self=this; var name=(file&&file.name)||"photo.jpg";
+    var info={ origType:(file&&file.type)||"(blank)", origSize:(file&&file.size)||0, name:name };
     return this.compressImage(file).then(function(f){
       if(self.mode==="cloud" && self.storage){
+        var ctype=self._imgType(f, name);
+        if(ctype==="image/jpeg" && !/\.jpe?g$/i.test(name)) name=name.replace(/\.[^.]*$/,"")+".jpg";
         var path = CFG.storageFolder+"/"+roomId+"/"+uid("p")+"_"+name.replace(/[^\w.\-]/g,"_");
-        var ref = self.storage.ref().child(path);
-        var task = ref.put(f);
-        if(onProg){ try{ task.on("state_changed", function(snap){ if(snap.totalBytes) onProg(Math.min(0.99, snap.bytesTransferred/snap.totalBytes)); }); }catch(e){} }
-        return task.then(function(snap){ if(onProg) onProg(1); return snap.ref.getDownloadURL(); });
+        info.sentType=ctype; info.sentSize=f.size||0;
+        var attempt=function(n){
+          var ref = self.storage.ref().child(path);
+          var task = ref.put(f, {contentType:ctype});
+          if(onProg){ try{ task.on("state_changed", function(snap){ if(snap.totalBytes) onProg(Math.min(0.99, snap.bytesTransferred/snap.totalBytes)); }); }catch(e){} }
+          return task.then(function(snap){ return snap.ref.getDownloadURL(); })
+            .catch(function(err){
+              if(n<1){ return new Promise(function(r){ setTimeout(r,1500); }).then(function(){ return attempt(n+1); }); }
+              throw err;
+            });
+        };
+        return attempt(0).then(function(url){ if(onProg) onProg(1); return url; })
+          .catch(function(err){ self._reportUploadFail(err, info, roomId); throw err; });
       }
       // local: dataURL
       return new Promise(function(res,rej){
         var r=new FileReader(); r.onload=function(){ if(onProg) onProg(1); res(r.result); }; r.onerror=rej; r.readAsDataURL(f);
       });
+    }).catch(function(err){
+      if(!err || !err._reported){ try{ self._reportUploadFail(err, info, roomId); }catch(e){} }
+      throw err;
     });
+  },
+  _reportUploadFail:function(err, info, roomId){
+    if(err && err._reported) return; try{ if(err) err._reported=true; }catch(e){}
+    var code=(err&&(err.code||err.name))||"unknown";
+    var msg=((err&&err.message)||String(err||"")).slice(0,300);
+    console.warn("photo upload failed", code, msg, info);
+    try{ if(window.App && App.toast) App.toast("Photo didn't upload ("+code.replace("storage/","")+"). Try again — if it keeps failing, tell the office."); }catch(e){}
+    try{
+      var who=(window.App&&App.currentUser&&App.currentUser())||{};
+      this.addLog({ id:uid("l"), ts:Date.now(), type:"photo_fail",
+        text:"Photo upload failed: "+code+" — "+msg+" | type "+info.origType+" → "+(info.sentType||"?")+", "+Math.round((info.origSize||0)/1024)+"KB → "+Math.round((info.sentSize||0)/1024)+"KB | "+navigator.userAgent.slice(0,160),
+        room:String(roomId||""), projectId:(window.App&&App.projectId)||"",
+        actorName:who.name||"(guest)", actorCompany:who.company||"", actorRole:who.role||"" });
+    }catch(e){}
   },
 
   _lsGet:function(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } },
