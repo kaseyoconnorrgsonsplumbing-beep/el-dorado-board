@@ -5927,6 +5927,8 @@ if(document.readyState!=="loading"){ App.start(); }
   ];
   var IX_USED=[["stops","Angle stops"],["supplies","Supply lines"],["ada","ADA covers"]];
   var DEFAULT_RATE=175;
+  // RG Sons standard markup (set 11/18 from Banks ES) — used on any project that hasn't saved its own
+  var DEFAULT_TIERS=[{upTo:10,mult:5},{upTo:50,mult:3.5},{upTo:200,mult:2.5},{upTo:null,mult:1.75}];
 
   function num(v){ var n=parseFloat(String(v==null?"":v).replace(/[$,\s]/g,"")); return isFinite(n)?n:0; }
   function money(n){ n=Math.round((+n||0)*100)/100; return "$"+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,","); }
@@ -6026,7 +6028,7 @@ if(document.readyState!=="loading"){ App.start(); }
 
     /* ===================== change orders ===================== */
     coRate:function(){ var c=this.config||{}; return (+c.coRate>0)?+c.coRate:DEFAULT_RATE; },
-    coTiers:function(){ var c=this.config||{}; var t=(c.coMarkup&&c.coMarkup.tiers)||[]; return t.filter(function(x){ return +x.mult>0; }); },
+    coTiers:function(){ var c=this.config||{}; var t=(c.coMarkup&&c.coMarkup.tiers&&c.coMarkup.tiers.length)?c.coMarkup.tiers:DEFAULT_TIERS; return t.filter(function(x){ return +x.mult>0; }); },
     coMult:function(cost){
       var t=this.coTiers().slice(); if(!t.length) return null;
       t.sort(function(a,b){ var A=(a.upTo==null||a.upTo==="")?Infinity:+a.upTo, B=(b.upTo==null||b.upTo==="")?Infinity:+b.upTo; return A-B; });
@@ -6240,10 +6242,11 @@ if(document.readyState!=="loading"){ App.start(); }
     cfgExtHtml:function(){
       var out='';
       if(this.isAdmin()){
-        var d=this._coTierDraft || ((this.config&&this.config.coMarkup&&this.config.coMarkup.tiers)||[]).map(function(t){return {upTo:t.upTo,mult:t.mult};});
+        var d=this._coTierDraft || this.coTiers().map(function(t){return {upTo:t.upTo,mult:t.mult};});
         if(!d.length) d=[{upTo:"",mult:""},{upTo:"",mult:""},{upTo:"",mult:""}];
         this._coTierDraft=d;
         out+='<div class="section-label">Change order pricing</div>'+
+          (!(this.config&&this.config.coMarkup&&this.config.coMarkup.tiers&&this.config.coMarkup.tiers.length)?'<div class="small muted" style="margin-bottom:4px"><b>Using the RG Sons standard markup.</b> Change and save below to set a different one for this project.</div>':'')+
           '<div class="small muted" style="margin-bottom:6px">Techs enter material at cost. The PDF bills each item at <b>cost × multiplier</b>, picking the tier by the item’s unit cost. Leave “up to” blank on the last tier for everything above. Field users never see billed prices.</div>'+
           '<div class="field"><label class="lbl">Labor rate ($/hr)</label><input class="in" id="coRateIn" type="number" min="0" step="0.01" value="'+esc(String((this.config&&this.config.coRate)||DEFAULT_RATE))+'"></div>';
         d.forEach(function(t,i){
