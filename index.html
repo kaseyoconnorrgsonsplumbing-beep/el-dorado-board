@@ -131,7 +131,8 @@ body.scrolled .summary.stick .stat-row{max-height:0;margin-top:0}
 
 /* Tabs */
 .tabs{display:flex;margin:12px 0 0;border-bottom:1px solid var(--hairline)}
-.tabs button{flex:1;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Barlow Semi Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:9px 4px;min-height:40px}
+.tabs{overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1 0 auto;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Barlow Semi Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:9px 4px;min-height:40px}
 .tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
 
 /* Photos */
@@ -622,6 +623,38 @@ button.u-pin:active{color:var(--accent)}
 .proj-card .pc-sub{font-size:11.5px;color:var(--muted)}
 .proj-card .pc-pct{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--steel)}
 .proj-card .pc-cur{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--accent);border-radius:4px;padding:2px 6px;margin-left:6px}
+/* ---- install checklist + change orders add-on ---- */
+.ix-head{padding:8px 0 6px;border-bottom:1px solid var(--hairline);margin-bottom:6px}
+.ix-name{font-family:'Barlow Semi Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.ix-flag{background:#fbf1e2;color:#9a5b12;border:1px solid #efd7b3;border-radius:var(--radius);padding:7px 9px;font-size:12px;font-weight:600;margin:6px 0}
+.ix-step{display:flex;align-items:center;gap:8px;margin-left:auto}
+.ix-step .icon-btn:disabled{opacity:.35}
+.ix-n{min-width:22px;text-align:center;font-size:15px}
+.ix-prev{border:1px solid var(--hairline);border-radius:var(--radius);background:#fff;padding:8px;margin-top:8px;font-size:12.5px}
+.ix-list{max-height:220px;overflow-y:auto;margin-top:6px;font-size:12px;line-height:1.55}
+.ix-fl{color:#9a5b12;font-weight:700}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:5px 6px;background:var(--steel);color:#fff;font-family:'Barlow Semi Condensed',sans-serif;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+.tbl td{padding:6px;background:#fff;border-bottom:1px solid var(--hairline)}
+.co-card{background:#fff;border:1px solid var(--hairline);border-radius:var(--radius);padding:9px 10px;margin-top:8px;cursor:pointer;box-shadow:var(--shadow-input,0 1px 1.5px rgba(20,24,28,.07))}
+.co-top{display:flex;align-items:center;gap:8px}
+.co-num{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:.03em}
+.co-st{display:inline-block;padding:2px 6px;border-radius:var(--radius);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;vertical-align:2px}
+.co-st.open{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.co-st.submitted{background:var(--steel);color:#fff}
+.co-st.paid{background:var(--ok);color:#fff}
+.co-amt{margin-left:auto;font-weight:800;font-size:14px}
+.co-room{font-size:12px;font-weight:700;color:var(--steel);margin-top:3px}
+.co-desc{font-size:13px;margin-top:2px}
+.co-meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+.co-week{margin-top:14px;padding-top:4px;border-top:1px solid var(--hairline)}
+.co-wk-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.co-wk-title{font-family:'Barlow Semi Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.co-wk-tot{font-size:17px;font-weight:800}
+.co-totals{border:1px solid var(--hairline);border-radius:var(--radius);background:#f7f8f9;padding:6px 9px;margin-top:10px}
+.co-tline{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0}
+.co-tline.big{font-size:15px;border-top:1px solid var(--hairline);margin-top:3px;padding-top:6px}
+.co-phx{position:absolute;top:-6px;right:-6px;width:20px;height:20px;font-size:12px;padding:0}
 </style>
 </head>
 <body>
@@ -1039,8 +1072,33 @@ var Store = {
    Each task = its subtasks (or 1 unit if no subtasks).
    Task % = done units / total units.  Room % = aggregate across all tasks.
    ============================================================ */
+/* per-room task lists (install checklists): a room may carry its own copy of
+   the project's tasks in room.tasks — same task ids, room-specific subtasks.
+   A project task the room doesn't list is N/A there (counts 0 of 0). */
+function effTask(task, room){
+  if(room && room.tasks && room.tasks.length){
+    for(var i=0;i<room.tasks.length;i++){ if(room.tasks[i].id===task.id) return room.tasks[i]; }
+    return null;
+  }
+  return task;
+}
+function unitList(task, room){ var t=effTask(task,room); if(!t) return []; return (t.subs&&t.subs.length)?t.subs:[{id:t.id,name:t.name}]; }
+function roomUnitIds(tpl, room){ var ids=[]; (tpl||[]).forEach(function(t){ unitList(t,room).forEach(function(u){ ids.push(u.id); }); }); return ids; }
+function allUnitIds(tpl, rooms){
+  var seen={}, ids=[];
+  (rooms&&rooms.length?rooms:[null]).forEach(function(r){ roomUnitIds(tpl,r).forEach(function(id){ if(!seen[id]){ seen[id]=1; ids.push(id); } }); });
+  return ids;
+}
+function unitNameMap(tpl, rooms){
+  var nameOf={};
+  function addT(t){ nameOf[t.id]={task:t.name,sub:null}; (t.subs||[]).forEach(function(s){ nameOf[s.id]={task:t.name,sub:s.name}; }); }
+  (tpl||[]).forEach(addT);
+  (rooms||[]).forEach(function(r){ if(r) (r.tasks||[]).forEach(addT); });
+  return nameOf;
+}
 function taskUnits(task, room){
   var done=room && room.done ? room.done : {};
+  task=effTask(task, room); if(!task) return {done:0,total:0};
   if(task.subs && task.subs.length){
     var d=0; task.subs.forEach(function(s){ if(done[s.id]) d++; });
     return {done:d, total:task.subs.length};
@@ -1474,8 +1532,7 @@ var App = {
     var evs=this.projectLogs().filter(function(e){ return e.room===tag; }).map(function(e){
       return {ts:e.ts, type:e.type, text:e.text, who:(e.actorName&&e.actorName!=="(guest)")?e.actorName:"", whoCo:e.actorCompany||""};
     });
-    var tpl=this.template(); var nameOf={};
-    tpl.forEach(function(t){ nameOf[t.id]={task:t.name,sub:null}; (t.subs||[]).forEach(function(s){ nameOf[s.id]={task:t.name,sub:s.name}; }); });
+    var tpl=this.template(); var nameOf=unitNameMap(tpl,[room]);
     var done=room.done||{};
     Object.keys(done).forEach(function(k){
       var v=done[k]; if(!v||v===true||!v.ts) return; var nm=nameOf[k]; if(!nm) return;
@@ -1488,10 +1545,8 @@ var App = {
   /* human name for a done-key (subtask or task id) */
   keyName:function(key){
     var found=null;
-    (this.template()||[]).forEach(function(task){
-      if(task.id===key) found=task.name;
-      (task.subs||[]).forEach(function(s){ if(s.id===key) found=s.name; });
-    });
+    var nmK=unitNameMap(this.template(), this.roomList())[key];
+    if(nmK) found=nmK.sub||nmK.task;
     return found||"an item";
   },
 
@@ -2528,34 +2583,43 @@ var App = {
   projectStats:function(){
     var tpl=this.template(); var rooms=this.roomList(); var N=rooms.length;
     var tasks=tpl.map(function(task){
-      var units=(task.subs&&task.subs.length)?task.subs.map(function(s){return {id:s.id,name:s.name};}):[{id:task.id,name:task.name}];
       var taskDays={}, taskDatedDone=0;
-      var subs=units.map(function(unit){
-        var done=0, dates=[];
-        rooms.forEach(function(r){ var v=r.done&&r.done[unit.id]; if(v){ done++; var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(dt){ dates.push(dt); taskDays[dt]=1; taskDatedDone++; } } });
-        var days={}; dates.forEach(function(d){ days[d]=1; }); var activeDays=Object.keys(days).length;
-        var rate=activeDays? dates.length/activeDays : 0;
-        var remaining=N-done;
-        var daysLeft=(rate>0&&remaining>0)?Math.ceil(remaining/rate):(remaining<=0?0:null);
-        return {name:unit.name, total:N, done:done, remaining:remaining, rate:rate, activeDays:activeDays, daysLeft:daysLeft};
+      // group units by name across rooms (rooms with their own install list
+      // share sub names like "Flushometer kit 111-1.6 × 2")
+      var groups={}, gOrder=[], totalUnits=0, roomsWith=0;
+      rooms.forEach(function(r){
+        var ul=unitList(task,r); if(ul.length) roomsWith++;
+        ul.forEach(function(unit){
+          var gk=(r.tasks&&r.tasks.length)?String(unit.name):unit.id;
+          if(!groups[gk]){ groups[gk]={name:unit.name,total:0,done:0,dates:[]}; gOrder.push(gk); }
+          var g=groups[gk]; g.total++; totalUnits++;
+          var v=r.done&&r.done[unit.id];
+          if(v){ g.done++; var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(dt){ g.dates.push(dt); taskDays[dt]=1; taskDatedDone++; } }
+        });
       });
-      var totalUnits=units.length*N;
+      var subs=gOrder.map(function(gk){
+        var g=groups[gk];
+        var days={}; g.dates.forEach(function(d){ days[d]=1; }); var activeDays=Object.keys(days).length;
+        var rate=activeDays? g.dates.length/activeDays : 0;
+        var remaining=g.total-g.done;
+        var daysLeft=(rate>0&&remaining>0)?Math.ceil(remaining/rate):(remaining<=0?0:null);
+        return {name:g.name, total:g.total, done:g.done, remaining:remaining, rate:rate, activeDays:activeDays, daysLeft:daysLeft};
+      });
       var doneUnits=subs.reduce(function(a,s){return a+s.done;},0);
       var pct=totalUnits?Math.round(doneUnits/totalUnits*100):0;
-      var roomsComplete=0; rooms.forEach(function(r){ if(taskPct(task,r)>=100) roomsComplete++; });
+      var roomsComplete=0; rooms.forEach(function(r){ if(unitList(task,r).length && taskPct(task,r)>=100) roomsComplete++; });
       var activeDaysT=Object.keys(taskDays).length;
       var rateT=activeDaysT? taskDatedDone/activeDaysT : 0;
       var remainingUnits=totalUnits-doneUnits;
       var daysLeftT=(rateT>0&&remainingUnits>0)?Math.ceil(remainingUnits/rateT):(remainingUnits<=0?0:null);
-      return {name:task.name, pct:pct, doneUnits:doneUnits, totalUnits:totalUnits, roomsComplete:roomsComplete, roomsTotal:N,
+      return {name:task.name, pct:pct, doneUnits:doneUnits, totalUnits:totalUnits, roomsComplete:roomsComplete, roomsTotal:roomsWith,
         rate:rateT, daysLeft:daysLeftT, remainingUnits:remainingUnits, activeDays:activeDaysT, hasSubs:!!(task.subs&&task.subs.length), subs:subs, deadline:(task.deadline||"")};
     });
     return {N:N, tasks:tasks};
   },
   /* stacked daily-completions chart, one color per person (last 14 days) */
   _chartDaily:function(){
-    var tpl=this.template(); var ids=[];
-    tpl.forEach(function(t){ if(t.subs&&t.subs.length){ t.subs.forEach(function(s){ids.push(s.id);}); } else ids.push(t.id); });
+    var tpl=this.template(); var ids=allUnitIds(tpl, this.roomList());
     var byP={}, order=[];
     this.roomList().forEach(function(r){ ids.forEach(function(id){ var v=r.done&&r.done[id]; if(!v) return;
       var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(!dt) return;
@@ -2602,9 +2666,8 @@ var App = {
     var rows=[];
     st.tasks.forEach(function(t,ti){
       var task=tpl[ti]; if(!task) return;
-      var units=(task.subs&&task.subs.length)?task.subs:[{id:task.id}];
       var first=null,last=null;
-      rooms.forEach(function(r){ units.forEach(function(u){ var v=r.done&&r.done[u.id]; if(!v) return;
+      rooms.forEach(function(r){ unitList(task,r).forEach(function(u){ var v=r.done&&r.done[u.id]; if(!v) return;
         var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(!dt) return;
         if(!first||dt<first)first=dt; if(!last||dt>last)last=dt; }); });
       var fD=first?ymdD(first):null, lD=last?ymdD(last):null;
@@ -2730,10 +2793,9 @@ var App = {
   /* per-room velocity/forecast vs its (optional) deadline */
   roomStats:function(){
     var tpl=this.template(); var rooms=this.roomList();
-    var ids=[]; tpl.forEach(function(t){ if(t.subs&&t.subs.length){ t.subs.forEach(function(s){ids.push(s.id);}); } else ids.push(t.id); });
-    var total=ids.length;
     var today=new Date(); today.setHours(12,0,0,0);
     var list=rooms.map(function(r){
+      var ids=roomUnitIds(tpl,r), total=ids.length;
       var done=0, dates=[], first=null, last=null;
       ids.forEach(function(id){ var v=r.done&&r.done[id]; if(!v) return; done++;
         var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(dt){ dates.push(dt); if(!first||dt<first)first=dt; if(!last||dt>last)last=dt; } });
@@ -2752,7 +2814,7 @@ var App = {
       return {id:r.id, number:r.number, pct:(total?Math.round(done/total*100):0), done:done, total:total, remaining:remaining,
         rate:rate, daysLeft:daysLeft, fin:fin, dl:dl, dlYMD:r.deadline||"", first:first?ymdD(first):null, last:last?ymdD(last):null, status:status};
     });
-    return {total:total, list:list};
+    return {total:list.reduce(function(m,x){ return Math.max(m,x.total); },0), list:list};
   },
   _roomSorted:function(rs){
     var mode=this.roomSort||"risk";
@@ -2897,8 +2959,7 @@ var App = {
   },
   /* daily dated completions across the whole project: {ymd: count} */
   _dailyCompletions:function(){
-    var tpl=this.template(); var ids=[];
-    tpl.forEach(function(t){ if(t.subs&&t.subs.length){ t.subs.forEach(function(s){ids.push(s.id);}); } else ids.push(t.id); });
+    var tpl=this.template(); var ids=allUnitIds(tpl, this.roomList());
     var by={};
     this.roomList().forEach(function(r){ ids.forEach(function(id){ var v=r.done&&r.done[id]; if(!v) return;
       var dt=(v!==true&&v.date)?v.date:((v!==true&&v.ts)?tsYMD(v.ts):null); if(dt) by[dt]=(by[dt]||0)+1; }); });
@@ -2984,8 +3045,7 @@ var App = {
 
   /* newest-first list of task/subtask completions across all rooms */
   recentActivity:function(limit){
-    var tpl=this.template(); var nameOf={};
-    tpl.forEach(function(task){ nameOf[task.id]={task:task.name, sub:null}; (task.subs||[]).forEach(function(s){ nameOf[s.id]={task:task.name, sub:s.name}; }); });
+    var tpl=this.template(); var nameOf=unitNameMap(tpl, this.roomList());
     var items=[];
     this.roomList().forEach(function(r){
       var done=r.done||{};
@@ -3041,6 +3101,7 @@ var App = {
     else if(this.view==="critreport") html += this.renderCritReport();
     else if(this.view==="admin") html += this.renderAdmin();
     else if(this.view==="materials") html += this.renderMaterials();
+    else if(this.view==="changeorders" && this.renderChangeOrders) html += this.renderChangeOrders();
     if(this.config || this.projectList().length) html += this.renderBottomNav();
     app.innerHTML = html;
     var hh=document.querySelector(".app-header");
@@ -3120,6 +3181,9 @@ var App = {
       left='<button class="hdr-btn icon" data-action="go" data-view="overview">&larr;</button>'; right='';
     } else if(this.view==="materials"){
       title="Materials"; meta=esc(jobName);
+      left='<button class="hdr-btn icon" data-action="go" data-view="overview">&larr;</button>'; right='';
+    } else if(this.view==="changeorders"){
+      title="Change Orders"; meta=esc(jobName);
       left='<button class="hdr-btn icon" data-action="go" data-view="overview">&larr;</button>'; right='';
     } else if(this.view==="critreport"){
       title="Critical Report"; meta=esc(jobName);
@@ -3397,7 +3461,7 @@ var App = {
       '<div class="pbar lg"><div class="pfill'+(p>=100?' done':'')+'" style="width:'+p+'%"></div></div></div>';
 
     // print / PDF room sheet
-    out += '<div class="no-print" style="display:flex;margin-top:8px"><button class="btn btn-sm" style="margin-left:auto" data-action="go" data-view="roomsheet">Room sheet (PDF)</button></div>';
+    out += '<div class="no-print" style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-sm" data-action="x_conew" data-room="'+esc(room.id)+'">+ Change order</button><button class="btn btn-sm" style="margin-left:auto" data-action="go" data-view="roomsheet">Room sheet (PDF)</button></div>';
 
     // login banner (guest = read-only) / provisional reassurance
     var cu=this.currentUser();
@@ -3417,6 +3481,7 @@ var App = {
       '<button class="'+(tab==="photos"?"on":"")+'" data-action="tab" data-tab="photos">Photos'+(room.photos&&room.photos.length?" ("+room.photos.length+")":"")+'</button>'+
       '<button class="'+(tab==="notes"?"on":"")+'" data-action="tab" data-tab="notes">Notes'+(noteN?" ("+noteN+")":"")+'</button>'+
       '<button class="'+(tab==="critical"?"on":"")+'" data-action="tab" data-tab="critical">Critical'+(critN?" ("+critN+")":"")+'</button>'+
+      '<button class="'+(tab==="extras"?"on":"")+'" data-action="tab" data-tab="extras">Extras'+((room.cos&&room.cos.length)?" ("+room.cos.length+")":"")+'</button>'+
       '<button class="'+(tab==="history"?"on":"")+'" data-action="tab" data-tab="history">History</button>'+
       '</div>';
 
@@ -3425,6 +3490,7 @@ var App = {
     else if(tab==="notes") out += this.renderNotes(room);
     else if(tab==="critical") out += this.renderRoomCritical(room);
     else if(tab==="history") out += this.renderRoomHistory(room);
+    else if(tab==="extras" && this.renderRoomCOs) out += this.renderRoomCOs(room);
     else if(tab==="map") out += this.renderMapContent();
 
     out += '</div>';
@@ -3435,8 +3501,11 @@ var App = {
     if(!tpl.length) return '<div class="empty">No tasks defined yet. Add a task template in Config.</div>';
     var opens = this._openTasks || {};
     var out='<div style="margin-top:4px">';
+    if(this.ixRoomHead) out += this.ixRoomHead(room);
     tpl.forEach(function(task){
-      var u=taskUnits(task,room); var pct=u.total?Math.round(u.done/u.total*100):0;
+      if(!effTask(task,room)) return;
+      var u=taskUnits(task,room);
+      task=effTask(task,room); var pct=u.total?Math.round(u.done/u.total*100):0;
       var isOpen = opens[task.id]!==false; // default open
       out += '<div class="task'+(isOpen?' open':'')+'" data-tid="'+esc(task.id)+'">'+
         '<div class="task-head" data-action="toggletask" data-tid="'+esc(task.id)+'">'+
@@ -3456,6 +3525,7 @@ var App = {
       }
       out += '</div>';
     });
+    if(this.ixRoomFoot) out += this.ixRoomFoot(room);
     out += '</div>';
     return out;
   },
@@ -3754,6 +3824,7 @@ var App = {
     });
     out += '<button class="btn btn-sm btn-block" style="margin-top:8px" data-action="addtask">+ Add task</button>';
     out += '<button class="btn btn-primary btn-block" style="margin-top:8px" data-action="savetemplate">Save template &amp; job info</button>';
+    if(this.isManager() && this.cfgExtHtml) out += this.cfgExtHtml();
     out += '<div class="small muted" style="margin-top:8px;text-align:center">Data: '+(Store.mode==="cloud"?"synced to office (Firebase)":"saved on this device only")+'</div>';
     out += '</div>';
     return out;
@@ -3895,7 +3966,7 @@ var App = {
       if(!showAll && pct>=100) return;
       var blocks='';
       tpl.forEach(function(task){
-        var items=(task.subs&&task.subs.length)?task.subs:[{id:task.id,name:task.name}];
+        var items=unitList(task,r);
         var rem=items.filter(function(s){ return showAll || !(r.done&&r.done[s.id]); });
         if(!rem.length) return;
         var lines=rem.map(function(s){ var done=r.done&&r.done[s.id]; return '<div class="ps-item"><span class="ps-box'+(done?' on':'')+'"></span>'+esc(s.name)+'</div>'; }).join('');
@@ -3949,6 +4020,7 @@ var App = {
     var aP=this.areaP().toLowerCase(); var aS=this.areaS().toLowerCase(); var st=this.projectStats();
     function areaN(n){ return n+" "+(n===1?aS:aP); }
     var out='<div class="wrap">';
+    if(this.ixReconHtml) out += this.ixReconHtml();
     if(!st.N){ out+='<div class="empty">No '+esc(aP)+' yet — add some in Config to see progress.</div></div>'; return out; }
     if(!st.tasks.length){ out+='<div class="empty">No task template yet — set one up in Config.</div></div>'; return out; }
     var overallDone=0, overallTotal=0; st.tasks.forEach(function(t){ overallDone+=t.doneUnits; overallTotal+=t.totalUnits; });
@@ -4231,9 +4303,10 @@ var App = {
       '<div class="ps-sub">'+esc(job.name||'El Dorado')+' &middot; '+esc(new Date().toLocaleDateString())+' &middot; '+p+'% complete ('+statusLabel(s)+')</div></div>';
     out+='<div class="ps-section">Tasks</div>';
     tpl.forEach(function(task){
+      if(!effTask(task,room)) return;
       var u=taskUnits(task,room); var tp=u.total?Math.round(u.done/u.total*100):0;
       out+='<div class="ps-task"><div class="ps-taskname">'+esc(task.name)+' &mdash; '+tp+'%</div>';
-      var items=(task.subs&&task.subs.length)?task.subs:[{id:task.id,name:task.name}];
+      var items=unitList(task,room);
       items.forEach(function(sub){ var v=room.done&&room.done[sub.id]; var meta=doneMeta(v);
         out+='<div class="ps-item"><span class="ps-box'+(v?' on':'')+'"></span>'+esc(sub.name)+((v&&meta&&meta.name)?' <span class="ps-by">&mdash; '+esc(meta.name)+(meta.date?', '+esc(fmtDate(meta.date)):'')+'</span>':'')+'</div>';
       });
@@ -4318,6 +4391,7 @@ var App = {
     // class check in handle(). If this had data-action="closemodal", clicking
     // an input inside the modal would bubble up via closest() and close it.
     var host=document.createElement("div"); host.className="modal-bg";
+    if(String(m.type).indexOf("x_")===0 && this.modalExt){ host.innerHTML=this.modalExt(m); document.body.appendChild(host); if(this.modalExtMounted) this.modalExtMounted(m); return; }
     if(m.type==="qr"){
       var room=this.rooms[m.roomId];
       host.innerHTML='<div class="modal" data-stop="1"><h3>'+esc(this.areaS())+' '+esc(room.number)+'</h3>'+
@@ -4509,6 +4583,8 @@ var App = {
       mrow("punchlist","Punch list",mi('<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.5M4 12h.5M4 18h.5"/>'));
       var mnc=this.isManager()?this.matNewCount():0;
       mrow("materials","Materials"+(mnc?' <span style="background:var(--error);color:#fff;border-radius:9px;font-size:10px;font-weight:800;padding:1px 7px;margin-left:4px">'+mnc+' new</span>':""),mi('<path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z"/><path d="M4 7.5 L12 12 L20 7.5"/><path d="M12 12V21"/>'));
+      var coN=this.coList?this.coList().filter(function(c){return c.status==="open";}).length:0;
+      mrow("changeorders","Change orders"+(coN?' <span style="background:var(--steel);color:#fff;border-radius:9px;font-size:10px;font-weight:800;padding:1px 7px;margin-left:4px">'+coN+' open</span>':""),mi('<path d="M6 3h9l3 3v15H6z"/><path d="M9 10h6M9 14h6M9 18h4"/>'));
       if(this.drawingsList().length||this.isManager()) mrow("drawings","Drawings",mi('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 14l4-4 5 5 3-3 4 4"/>'));
       mrow("labels","QR labels",mi('<rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><path d="M13 13h3v3h-3zM17 17h3v3h-3z"/>'));
       if(this.isManager()) mrow("log","Activity log",mi('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'));
@@ -4760,6 +4836,7 @@ var App = {
     if(!t) return;
     var a=t.getAttribute("data-action");
     var room = this.roomId ? this.rooms[this.roomId] : null;
+    if(a && a.indexOf("x_")===0){ if(this.handleExt) this.handleExt(a,t,e); return; }
 
     switch(a){
       case "go":
@@ -5451,6 +5528,7 @@ var App = {
   handleInput:function(e){
     var t=e.target;
     if(!t.getAttribute) return;
+    if(this.handleInputExt && this.handleInputExt(e)) return;
     if(t.id==="matOther"){ if(this.modal){ this.modal.f=this.modal.f||{}; this.modal.f.other=t.value; } return; }
     if(t.id==="critCmt"){
       if(this.modal){ this.modal.f=this.modal.f||{}; this.modal.f.cmt=t.value; }
@@ -5475,6 +5553,7 @@ var App = {
 
   /* photo file input + inline completion-date edits */
   handleChange:function(e){
+    if(this.handleChangeExt && this.handleChangeExt(e)) return;
     if(e.target.getAttribute && e.target.getAttribute("data-action")==="roomdl"){
       var rdr=this.rooms[e.target.getAttribute("data-room")]; if(!rdr) return;
       rdr.deadline=e.target.value||"";
@@ -5794,6 +5873,714 @@ window.addEventListener("popstate", function(ev){
 
 document.addEventListener("DOMContentLoaded", function(){ App.start(); try{ history.replaceState({view:App.view, roomId:App.roomId||null}, ""); }catch(e){} });
 if(document.readyState!=="loading"){ App.start(); }
+</script>
+<script>
+/* =====================================================================
+   ADD-ON (2026-11-18): Install checklists + Change orders
+   ---------------------------------------------------------------------
+   INSTALL CHECKLIST — per-room lists built from a TUSD "Installation
+   Reference Sheet" pasted into Config. Each room gets room.tasks (same
+   task ids as the project's install phases, room-specific subtasks with
+   quantities), room.ix (item / door / fixture counts / sheet flags) and
+   room.used (angle stops, supply lines, ADA covers pulled from the locker).
+   Rooms without room.tasks keep using the project task list as before.
+
+   CHANGE ORDERS — extra work per room, stored on the room doc as
+   room.cos[] so no new Firestore collection / rules are needed:
+     {id, num, date:"YYYY-MM-DD", ts, byId, byName, byCompany, desc,
+      hours, rate, mats:[{id,qty,desc,cost}], photos:[{id,url}],
+      status:"open"|"submitted"|"paid", submittedTs, paidTs, editedTs}
+   Techs enter COST. Billed price = cost × the project's tiered markup
+   (Config → Change order pricing, office only). Labor is billed flat at
+   the project's labor rate ($175/hr default). Field users never see
+   billed prices; PMs/office do.
+   ===================================================================== */
+(function(){
+  var IX_PHASES=[
+    {id:"t_ix_prep",  name:"Before you start"},
+    {id:"t_ix_lav",   name:"Lavatory flow controls"},
+    {id:"t_ix_sink",  name:"Sink flow controls"},
+    {id:"t_ix_wc",    name:"Toilets"},
+    {id:"t_ix_ur",    name:"Urinals"},
+    {id:"t_ix_meter", name:"Metering cartridges"},
+    {id:"t_ix_close", name:"Test & closeout"}
+  ];
+  // [sheet column, key, label, phase] — column positions of the TUSD Ph1B "Installer Reference" tab
+  var IX_COLS=[
+    [31,"lavstd","Lav flow control (0.5 gpm) – Std SLC","t_ix_lav"],
+    [32,"lavreg","Lav flow control (0.5 gpm) – Regular cache SLC","t_ix_lav"],
+    [33,"lavtt","Lav flow control – TT cache","t_ix_lav"],
+    [13,"manual","Manual faucet","t_ix_lav"],
+    [8,"sink10","General-use sink flow control 1.0 gpm","t_ix_sink"],
+    [9,"sink15","Sink flow control 1.5 gpm","t_ix_sink"],
+    [20,"tank2","Tank toilet – 2\" flush valve kit","t_ix_wc"],
+    [21,"tank3","Tank toilet – 3\" flush valve kit","t_ix_wc"],
+    [15,"fl110","Flushometer kit 110-2.4 (3.5 gpf)","t_ix_wc"],
+    [16,"fl111","Flushometer kit 111-1.6 (1.6 gpf)","t_ix_wc"],
+    [17,"fl128","Flushometer kit 111-1.28 (1.28 gpf)","t_ix_wc"],
+    [24,"ur05","Urinal kit 186-0.5 (1.5/1.0/0.5 gpf)","t_ix_ur"],
+    [25,"ur0125","Urinal kit 186-0.125 (0.125 gpf)","t_ix_ur"],
+    [26,"ur01251","Urinal kit 186-0.125 (0.125–1.0 gpf)","t_ix_ur"],
+    [27,"ur24","Urinal kit 186-0.125-24\" FC (0.125 gpf)","t_ix_ur"],
+    [28,"ftube","1 1/4\" flush tube","t_ix_ur"],
+    [14,"meter","Metering faucet cartridge – adjust","t_ix_meter"]
+  ];
+  var IX_USED=[["stops","Angle stops"],["supplies","Supply lines"],["ada","ADA covers"]];
+  var DEFAULT_RATE=175;
+
+  function num(v){ var n=parseFloat(String(v==null?"":v).replace(/[$,\s]/g,"")); return isFinite(n)?n:0; }
+  function money(n){ n=Math.round((+n||0)*100)/100; return "$"+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,","); }
+  function r2(n){ return Math.round((+n||0)*100)/100; }
+  function ymdOf(d){ var m=d.getMonth()+1, dd=d.getDate(); return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(dd<10?"0":"")+dd; }
+  function weekStart(ymd){ var d=ymdD(ymd)||new Date(); d.setHours(12,0,0,0); var dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return ymdOf(d); }
+  function weekLabel(wk){ var a=ymdD(wk); var b=new Date(a.getTime()); b.setDate(b.getDate()+6);
+    var o={month:"short",day:"numeric"}; return a.toLocaleDateString(undefined,o)+" – "+b.toLocaleDateString(undefined,o)+", "+b.getFullYear(); }
+  function longDate(ymd){ var d=ymdD(ymd); if(!d) return ymd||""; return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
+
+  /* ---------- reference-sheet parser (paste from Excel = tab separated) ---------- */
+  function parseSheet(raw){
+    var lines=String(raw||"").replace(/\r/g,"").split("\n");
+    var rows=[], headerOk=false, building="";
+    lines.forEach(function(ln){
+      var c=ln.split("\t");
+      if(/^item\s*#/i.test((c[0]||"").trim())){ headerOk=/door/i.test(c[6]||""); return; }
+      var item=(c[0]||"").trim(); if(!/^\d+$/.test(item)) return;
+      if(String(c[5]||"").trim().toLowerCase()!=="x") return; // not in scope
+      var name=(c[2]||"").trim(); if(!name) return;
+      building=building||(c[1]||"").trim();
+      var mfu=String(c[3]||"").trim().toUpperCase(); if(["M","F","U"].indexOf(mfu)<0) mfu="";
+      var door=String(c[6]||"").trim(); if(door==="0") door="";
+      var lav=num(c[7]), sinks=num(c[8])+num(c[9]), tank=num(c[10]), fwc=num(c[11]), ur=num(c[12]);
+      var comps=[];
+      IX_COLS.forEach(function(col){ var q=num(c[col[0]]); if(q>0) comps.push({key:col[1],label:col[2],phase:col[3],qty:q}); });
+      if(!comps.length) return;
+      var fx=[]; if(lav)fx.push(lav+" lav"); if(sinks)fx.push(sinks+" sink"); if(tank)fx.push(tank+" tank WC"); if(fwc)fx.push(fwc+" flush WC"); if(ur)fx.push(ur+" urinal");
+      var label=name+(mfu?" ("+mfu+")":"");
+      var flags=[];
+      var meter=num(c[14]); if(meter>lav && lav>0) flags.push("Sheet says "+meter+" metering cartridge adjustments but only "+lav+" lav — verify on site.");
+      if(num(c[31])>0 && num(c[32])>0) flags.push("Std / Regular cache SLC split in this room — check which lav gets which.");
+      if(!door) flags.push("No door # on the sheet — find it by room name.");
+      rows.push({item:item, building:(c[1]||"").trim(), name:label, door:door, fixtures:fx.join(", "), comps:comps, flags:flags});
+    });
+    // same name twice → door # is what tells them apart
+    var cnt={}; rows.forEach(function(r){ cnt[r.name.toLowerCase()]=(cnt[r.name.toLowerCase()]||0)+1; });
+    rows.forEach(function(r){ if(cnt[r.name.toLowerCase()]>1) r.flags.push("There's more than one \""+r.name+"\" on this job — go by door # "+(r.door||"")+"."); });
+    return {rows:rows, headerOk:headerOk, building:building};
+  }
+  function ixTasks(r){
+    var pre="s_ix"+r.item+"_";
+    var out=[{id:"t_ix_prep",name:"Before you start",subs:[
+      {id:pre+"found",name:"Found by door # — fixture count matches the sheet"},
+      {id:pre+"before",name:"Before photos"}]}];
+    IX_PHASES.forEach(function(ph){
+      if(ph.id==="t_ix_prep"||ph.id==="t_ix_close") return;
+      var subs=r.comps.filter(function(c){return c.phase===ph.id;}).map(function(c){ return {id:pre+c.key, name:c.label+" × "+c.qty, qty:c.qty, comp:c.key}; });
+      if(subs.length) out.push({id:ph.id,name:ph.name,subs:subs});
+    });
+    out.push({id:"t_ix_close",name:"Test & closeout",subs:[
+      {id:pre+"tested",name:"Tested — no leaks, flush / flow checked"},
+      {id:pre+"after",name:"After photos"}]});
+    return out;
+  }
+
+  var X = {
+    /* ===================== install checklist ===================== */
+    ixRooms:function(){ return this.roomList().filter(function(r){ return r.ix; }); },
+    ixRoomHead:function(room){
+      if(!room.ix) return "";
+      var x=room.ix, bits=[];
+      if(x.item) bits.push("Item "+esc(x.item)); if(x.door) bits.push("Door "+esc(x.door)); if(x.fixtures) bits.push(esc(x.fixtures));
+      var h='<div class="ix-head"><div class="ix-name">'+esc(x.name||"")+'</div><div class="small muted">'+bits.join(" · ")+'</div></div>';
+      (x.flags||[]).forEach(function(f){ h+='<div class="ix-flag">&#9873; '+esc(f)+'</div>'; });
+      return h;
+    },
+    ixRoomFoot:function(room){
+      if(!room.ix) return "";
+      var u=room.used||{}; var can=!!this.currentUser();
+      var h='<div class="section-label" style="margin-top:14px">Pieces used from the locker</div>'+
+        '<div class="small muted" style="margin-bottom:4px">Log every piece you pull — the school charges for anything missing.</div>';
+      IX_USED.forEach(function(k){
+        var n=+u[k[0]]||0;
+        h+='<div class="chk"><span>'+esc(k[1])+'</span><span class="ix-step">'+
+          '<button class="icon-btn" data-action="x_ixused" data-k="'+k[0]+'" data-d="-1"'+((!can||n<=0)?' disabled':'')+'>&minus;</button>'+
+          '<b class="ix-n">'+n+'</b>'+
+          '<button class="icon-btn" data-action="x_ixused" data-k="'+k[0]+'" data-d="1"'+(can?'':' disabled')+'>&#43;</button></span></div>';
+      });
+      return h;
+    },
+    ixReconHtml:function(){
+      var rooms=this.ixRooms(); if(!rooms.length) return "";
+      var tot={}, order=[];
+      rooms.forEach(function(r){ (r.tasks||[]).forEach(function(t){ (t.subs||[]).forEach(function(s){
+        if(!s.comp) return; var k=s.comp;
+        if(!tot[k]){ var lab=(s.name||"").replace(/\s×\s\d+(\.\d+)?$/,""); tot[k]={label:lab,scope:0,done:0}; order.push(k); }
+        tot[k].scope+=(+s.qty||0); if(r.done&&r.done[s.id]) tot[k].done+=(+s.qty||0);
+      }); }); });
+      var used={stops:0,supplies:0,ada:0}; rooms.forEach(function(r){ var u=r.used||{}; used.stops+=+u.stops||0; used.supplies+=+u.supplies||0; used.ada+=+u.ada||0; });
+      var h='<div class="section-label">Material reconciliation (install checklist)</div><table class="tbl"><tr><th>Component</th><th style="text-align:right">Scope</th><th style="text-align:right">Installed</th><th style="text-align:right">Left</th></tr>';
+      order.forEach(function(k){ var t=tot[k]; h+='<tr><td>'+esc(t.label)+'</td><td style="text-align:right">'+t.scope+'</td><td style="text-align:right">'+t.done+'</td><td style="text-align:right">'+(t.scope-t.done)+'</td></tr>'; });
+      IX_USED.forEach(function(k){ h+='<tr><td>'+esc(k[1])+' (pulled)</td><td style="text-align:right">—</td><td style="text-align:right">'+used[k[0]]+'</td><td style="text-align:right">—</td></tr>'; });
+      h+='</table><div class="small muted" style="margin:4px 0 12px">“Installed” counts a line once its box is checked. Compare against what was pulled from the meat locker.</div>';
+      return h;
+    },
+
+    /* ===================== change orders ===================== */
+    coRate:function(){ var c=this.config||{}; return (+c.coRate>0)?+c.coRate:DEFAULT_RATE; },
+    coTiers:function(){ var c=this.config||{}; var t=(c.coMarkup&&c.coMarkup.tiers)||[]; return t.filter(function(x){ return +x.mult>0; }); },
+    coMult:function(cost){
+      var t=this.coTiers().slice(); if(!t.length) return null;
+      t.sort(function(a,b){ var A=(a.upTo==null||a.upTo==="")?Infinity:+a.upTo, B=(b.upTo==null||b.upTo==="")?Infinity:+b.upTo; return A-B; });
+      for(var i=0;i<t.length;i++){ var cap=(t[i].upTo==null||t[i].upTo==="")?Infinity:+t[i].upTo; if(cost<=cap) return +t[i].mult; }
+      return +t[t.length-1].mult;
+    },
+    coCalc:function(co){
+      var self=this, rate=+co.rate||this.coRate();
+      var labor=r2((+co.hours||0)*rate), matCost=0, matSell=0, priced=true;
+      var lines=(co.mats||[]).map(function(m){
+        var q=+m.qty||0, c=+m.cost||0, mult=self.coMult(c);
+        if(mult==null) priced=false;
+        var unit=mult==null?null:r2(c*mult);
+        var ext=unit==null?null:r2(unit*q);
+        matCost+=c*q; if(ext!=null) matSell+=ext;
+        return {qty:q, desc:m.desc, cost:c, unit:unit, ext:ext};
+      });
+      matCost=r2(matCost); matSell=r2(matSell);
+      return {rate:rate, labor:labor, lines:lines, matCost:matCost, matSell:priced?matSell:null, total:priced?r2(labor+matSell):null, priced:priced};
+    },
+    coList:function(){
+      var me=this.currentUser(), mgr=this.isManager(), out=[];
+      this.roomList().forEach(function(r){ (r.cos||[]).forEach(function(co){
+        if(!mgr && (!me || co.byId!==me.id)) return;
+        out.push({co:co, roomId:r.id, room:r});
+      }); });
+      out.sort(function(a,b){ if(a.co.date!==b.co.date) return a.co.date<b.co.date?1:-1; return (b.co.ts||0)-(a.co.ts||0); });
+      return out;
+    },
+    coNextNum:function(){
+      var mx=0; this.roomList().forEach(function(r){ (r.cos||[]).forEach(function(c){ var m=/(\d+)$/.exec(c.num||""); if(m) mx=Math.max(mx,+m[1]); }); });
+      var n=mx+1; return "CO-"+(n<10?"00":n<100?"0":"")+n;
+    },
+    coFind:function(roomId, coId){ var r=this.rooms[roomId]; if(!r) return null; var c=(r.cos||[]).filter(function(x){return x.id===coId;})[0]; return c?{room:r,co:c}:null; },
+    coCanEdit:function(co){ var u=this.currentUser(); if(!u) return false; if(this.isManager()) return true; return co.byId===u.id && co.status==="open"; },
+    _roomLabel:function(r){ return this.areaS()+" "+r.number; },
+    _coStatusBadge:function(s){ var lab={open:"Open",submitted:"Submitted",paid:"Paid"}[s]||"Open"; return '<span class="co-st '+esc(s||"open")+'">'+lab+'</span>'; },
+    _coCard:function(it){
+      var co=it.co, mgr=this.isManager(), c=this.coCalc(co);
+      var txt=String(co.desc||""); if(txt.length>110) txt=txt.slice(0,108)+"…";
+      var right=mgr?(c.total==null?'<span class="muted">markup not set</span>':money(c.total)):(+co.hours||0)+' hr';
+      return '<div class="co-card" data-action="x_coview" data-room="'+esc(it.roomId)+'" data-co="'+esc(co.id)+'">'+
+        '<div class="co-top"><span class="co-num">'+esc(co.num||"CO")+'</span>'+this._coStatusBadge(co.status)+
+        '<span class="co-amt">'+right+'</span></div>'+
+        '<div class="co-room">'+esc(this._roomLabel(it.room))+'</div>'+
+        '<div class="co-desc">'+esc(txt)+'</div>'+
+        '<div class="co-meta">'+esc(longDate(co.date))+' · '+esc(co.byName||"")+' · '+(+co.hours||0)+' hr'+((co.mats&&co.mats.length)?' · '+co.mats.length+' material line'+(co.mats.length===1?'':'s'):'')+((co.photos&&co.photos.length)?' · '+co.photos.length+' photo'+(co.photos.length===1?'':'s'):'')+'</div></div>';
+    },
+    renderRoomCOs:function(room){
+      var self=this, list=this.coList().filter(function(it){ return it.roomId===room.id; });
+      var out='<button class="btn btn-primary btn-block" style="margin-top:10px" data-action="x_conew" data-room="'+esc(room.id)+'">+ Create change order</button>'+
+        '<div class="small muted" style="margin:6px 0 4px">Extra work in this '+esc(this.areaS().toLowerCase())+' that isn’t on the checklist — what you did, your hours, and the material you used at your cost.</div>';
+      if(!list.length) return out+'<div class="empty">No change orders for this '+esc(this.areaS().toLowerCase())+' yet.</div>';
+      list.forEach(function(it){ out+=self._coCard(it); });
+      return out;
+    },
+    renderChangeOrders:function(){
+      var self=this, mgr=this.isManager(), u=this.currentUser();
+      var f=this.coFilter||"all";
+      var all=this.coList();
+      var list=all.filter(function(it){ return f==="all" || (it.co.status||"open")===f; });
+      var out='<div class="wrap">';
+      out+='<button class="btn btn-primary btn-block" data-action="x_conew">+ New change order</button>';
+      if(!u) out+='<div class="small muted" style="margin:6px 0">Log in to add change orders.</div>';
+      else if(!mgr) out+='<div class="small muted" style="margin:6px 0">These are the change orders you’ve entered. The office prices and submits them each week.</div>';
+      if(mgr && !this.coTiers().length) out+='<div class="ix-flag" style="margin-top:8px">&#9873; Material markup isn’t set yet, so billed totals can’t be figured. Office: Config → Change order pricing.</div>';
+      var cnt={all:all.length,open:0,submitted:0,paid:0}; all.forEach(function(it){ cnt[it.co.status||"open"]++; });
+      out+='<div class="seg" style="margin:10px 0 4px">'+["all","open","submitted","paid"].map(function(k){
+        return '<button class="'+(f===k?"on":"")+'" data-action="x_cofilter" data-f="'+k+'">'+({all:"All",open:"Open",submitted:"Submitted",paid:"Paid"}[k])+' ('+cnt[k]+')</button>'; }).join('')+'</div>';
+      if(!list.length){ out+='<div class="empty">No change orders here yet.</div></div>'; return out; }
+      var weeks={}, wOrder=[];
+      list.forEach(function(it){ var wk=weekStart(it.co.date); if(!weeks[wk]){ weeks[wk]=[]; wOrder.push(wk); } weeks[wk].push(it); });
+      wOrder.sort().reverse();
+      wOrder.forEach(function(wk){
+        var items=weeks[wk], lab=0, mat=0, tot=0, priced=true, hrs=0, open=0, byP={};
+        items.forEach(function(it){ var c=self.coCalc(it.co); hrs+=(+it.co.hours||0); lab+=c.labor; if(c.matSell==null) priced=false; else mat+=c.matSell; if(c.total!=null) tot+=c.total; if((it.co.status||"open")==="open") open++; var nm=it.co.byName||"—"; byP[nm]=(byP[nm]||0)+1; });
+        out+='<div class="co-week"><div class="co-wk-head"><div><div class="co-wk-title">Week of '+esc(weekLabel(wk))+'</div>'+
+          '<div class="small muted">'+items.length+' change order'+(items.length===1?'':'s')+' · '+r2(hrs)+' hr · '+Object.keys(byP).map(function(k){return esc(k)+' '+byP[k];}).join(' · ')+'</div></div>'+
+          (mgr?'<div class="co-wk-tot">'+(priced?money(tot):'—')+'</div>':'')+'</div>';
+        if(mgr){
+          out+='<div class="small muted" style="margin:2px 0 6px">Labor '+money(lab)+' · Material '+(priced?money(mat):'markup not set')+'</div>'+
+            '<div class="row-2" style="margin-bottom:6px"><button class="btn btn-sm" data-action="x_coexport" data-wk="'+wk+'">Export PDF</button>'+
+            (open?'<button class="btn btn-sm" data-action="x_coweekstatus" data-wk="'+wk+'" data-s="submitted">Mark '+open+' submitted</button>':'')+'</div>';
+        }
+        items.forEach(function(it){ out+=self._coCard(it); });
+        out+='</div>';
+      });
+      out+='</div>'; return out;
+    },
+
+    /* ---------- CO form ---------- */
+    _coPreserve:function(){
+      var m=this.modal; if(!m || m.type!=="x_coform") return;
+      var f=m.f=m.f||{};
+      var rs=el("coRoom"); if(rs) f.roomId=rs.value;
+      var d=el("coDate"); if(d) f.date=d.value;
+      var ds=el("coDesc"); if(ds) f.desc=ds.value;
+      var h=el("coHrs"); if(h) f.hours=h.value;
+      var rows=[]; var qs=document.querySelectorAll(".co-q");
+      for(var i=0;i<qs.length;i++){ var ix=qs[i].getAttribute("data-i");
+        rows.push({id:qs[i].getAttribute("data-id")||uid("cm"), qty:qs[i].value, desc:(document.querySelector('.co-d[data-i="'+ix+'"]')||{}).value||"", cost:(document.querySelector('.co-c[data-i="'+ix+'"]')||{}).value||""}); }
+      if(qs.length) f.mats=rows;
+    },
+    _coTotalsHtml:function(f){
+      var co={hours:f.hours, rate:f.rate||this.coRate(), mats:(f.mats||[]).map(function(m){return {qty:num(m.qty)||((String(m.desc||"").trim()||num(m.cost))?1:0), cost:num(m.cost), desc:m.desc};})};
+      var c=this.coCalc(co);
+      var h='<div class="co-tline"><span>Labor '+r2(num(f.hours))+' hr × '+money(c.rate)+'</span><b>'+money(c.labor)+'</b></div>'+
+        '<div class="co-tline"><span>Material (your cost)</span><b>'+money(c.matCost)+'</b></div>';
+      if(this.isManager()){
+        h+='<div class="co-tline"><span>Material billed (with markup)</span><b>'+(c.matSell==null?'markup not set':money(c.matSell))+'</b></div>'+
+          '<div class="co-tline big"><span>Change order total</span><b>'+(c.total==null?'—':money(c.total))+'</b></div>';
+      }
+      return h;
+    },
+    _coFormHtml:function(m){
+      var f=m.f||{}, self=this, rooms=this.roomList();
+      var mats=(f.mats&&f.mats.length)?f.mats:[{id:uid("cm"),qty:"",desc:"",cost:""}];
+      var h='<div class="modal wide" data-stop="1"><h3>'+(m.editId?'Edit change order':'New change order')+'</h3>';
+      h+='<div class="field"><label class="lbl">'+esc(this.areaS())+'</label><select class="in" id="coRoom"'+(m.editId?' disabled':'')+'>'+
+        rooms.map(function(r){ return '<option value="'+esc(r.id)+'"'+(r.id===f.roomId?' selected':'')+'>'+esc(self._roomLabel(r))+'</option>'; }).join('')+'</select></div>';
+      h+='<div class="row-2"><div class="field"><label class="lbl">Date of work</label><input type="date" class="in" id="coDate" value="'+esc(f.date||todayISO())+'"></div>'+
+        '<div class="field"><label class="lbl">Labor hours @ '+money(f.rate||this.coRate())+'</label><input type="number" min="0" step="0.25" inputmode="decimal" class="in co-live" id="coHrs" placeholder="e.g. 1.5" value="'+esc(String(f.hours==null?"":f.hours))+'"></div></div>';
+      h+='<div class="field"><label class="lbl">What did you do?</label><textarea class="in" id="coDesc" rows="3" placeholder="e.g. Replaced corroded 1/2&quot; angle stop and supply at lav 2 — not on the checklist">'+esc(f.desc||"")+'</textarea></div>';
+      h+='<label class="lbl">Material used (your cost)</label>';
+      mats.forEach(function(r,i){
+        h+='<div class="row-2" style="margin-top:6px;gap:6px">'+
+          '<input type="number" min="0" step="any" inputmode="decimal" class="in co-q co-live" data-i="'+i+'" data-id="'+esc(r.id||"")+'" style="flex:0 0 54px" placeholder="Qty" value="'+esc(String(r.qty==null?"":r.qty))+'">'+
+          '<input class="in co-d" data-i="'+i+'" style="flex:1;min-width:0" placeholder="Item" value="'+esc(r.desc||"")+'">'+
+          '<input type="number" min="0" step="0.01" inputmode="decimal" class="in co-c co-live" data-i="'+i+'" style="flex:0 0 80px" placeholder="$ each" value="'+esc(String(r.cost==null?"":r.cost))+'">'+
+          (mats.length>1?'<button class="icon-btn danger" data-action="x_colinedel" data-i="'+i+'">&times;</button>':'')+'</div>';
+      });
+      h+='<button class="btn btn-sm btn-block" style="margin-top:8px" data-action="x_coline">+ Add material line</button>';
+      var phs=f.photos||[];
+      h+='<label class="lbl" style="margin-top:10px">Photos (optional)</label>'+
+        (phs.length?'<div class="mi-ths">'+phs.map(function(p,i){ return '<span style="position:relative;display:inline-block"><img class="mi-th" src="'+esc(p.url)+'" alt="" data-action="viewphoto" data-url="'+esc(p.url)+'"><button class="icon-btn danger co-phx" data-action="x_cophdel" data-i="'+i+'">&times;</button></span>'; }).join('')+'</div>':'')+
+        '<label class="photo-slot" style="display:block;margin-top:4px"><input type="file" accept="image/*" multiple style="display:none" id="coPhoto">&#43; Add photo</label>'+
+        '<div class="small muted" id="coPhSt"></div>';
+      h+='<div class="co-totals" id="coTot">'+this._coTotalsHtml(f)+'</div>';
+      if(m.msg) h+='<div class="msg '+esc(m.msg.t)+'">'+esc(m.msg.m)+'</div>';
+      h+='<button class="btn btn-primary btn-block" style="margin-top:10px" data-action="x_cosubmit"'+(m.pending?' disabled':'')+'>'+(m.pending?'Photo uploading&hellip;':(m.editId?'Save changes':'Save change order'))+'</button>'+
+        '<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="closemodal">Cancel</button></div>';
+      return h;
+    },
+    _coViewHtml:function(m){
+      var fnd=this.coFind(m.roomId, m.coId);
+      if(!fnd) return '<div class="modal" data-stop="1"><h3>Change order not found</h3><button class="btn btn-block btn-sm" style="margin-top:10px" data-action="closemodal">Close</button></div>';
+      var co=fnd.co, r=fnd.room, mgr=this.isManager(), c=this.coCalc(co);
+      var h='<div class="modal wide" data-stop="1"><h3>'+esc(co.num||"Change order")+' '+this._coStatusBadge(co.status)+'</h3>'+
+        '<div class="small muted" style="text-align:center">'+esc(this._roomLabel(r))+'<br>'+esc(longDate(co.date))+' · '+esc(co.byName||"")+'</div>'+
+        '<div class="section-label">Work performed</div><div style="white-space:pre-wrap">'+esc(co.desc||"")+'</div>'+
+        '<div class="section-label">Labor</div><div class="co-tline"><span>'+r2(+co.hours||0)+' hr × '+money(c.rate)+'</span><b>'+money(c.labor)+'</b></div>';
+      if(c.lines.length){
+        h+='<div class="section-label">Material</div><table class="tbl"><tr><th>Qty</th><th>Item</th><th style="text-align:right">Cost</th>'+(mgr?'<th style="text-align:right">Billed</th>':'')+'</tr>';
+        c.lines.forEach(function(l){ h+='<tr><td>'+l.qty+'</td><td>'+esc(l.desc||"")+'</td><td style="text-align:right">'+money(l.cost)+'</td>'+(mgr?'<td style="text-align:right">'+(l.ext==null?'—':money(l.ext))+'</td>':'')+'</tr>'; });
+        h+='</table>';
+      }
+      if(co.photos&&co.photos.length) h+='<div class="mi-ths" style="margin-top:8px">'+co.photos.map(function(p){ return '<img class="mi-th" src="'+esc(p.url)+'" alt="" data-action="viewphoto" data-url="'+esc(p.url)+'">'; }).join('')+'</div>';
+      h+='<div class="co-totals"><div class="co-tline"><span>Material (cost)</span><b>'+money(c.matCost)+'</b></div>'+
+        (mgr?'<div class="co-tline"><span>Material billed</span><b>'+(c.matSell==null?'markup not set':money(c.matSell))+'</b></div><div class="co-tline big"><span>Total</span><b>'+(c.total==null?'—':money(c.total))+'</b></div>':'')+'</div>';
+      if(co.submittedTs) h+='<div class="small muted">Submitted '+esc(fmtDateTime(co.submittedTs))+(co.paidTs?' · Paid '+esc(fmtDateTime(co.paidTs)):'')+'</div>';
+      if(this.coCanEdit(co)) h+='<button class="btn btn-block" style="margin-top:10px" data-action="x_coedit">Edit</button>';
+      if(mgr){
+        var s=co.status||"open";
+        h+='<div class="row-2" style="margin-top:8px">'+
+          (s!=="open"?'<button class="btn btn-sm" data-action="x_costatus" data-s="open">Reopen</button>':'')+
+          (s!=="submitted"?'<button class="btn btn-sm" data-action="x_costatus" data-s="submitted">Mark submitted</button>':'')+
+          (s!=="paid"?'<button class="btn btn-sm" data-action="x_costatus" data-s="paid">Mark paid</button>':'')+'</div>';
+      }
+      if(mgr || this.coCanEdit(co)) h+='<button class="btn btn-danger btn-block btn-sm" style="margin-top:8px" data-action="x_codel">Delete change order</button>';
+      h+='<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="closemodal">Close</button></div>';
+      return h;
+    },
+    _coExportHtml:function(m){
+      var self=this, wk=m.wk;
+      var all=this.coList(), weeks={}; all.forEach(function(it){ weeks[weekStart(it.co.date)]=1; });
+      var wks=Object.keys(weeks).sort().reverse();
+      var items=all.filter(function(it){ return weekStart(it.co.date)===wk; });
+      var sel=m.sel||{};
+      var h='<div class="modal wide" data-stop="1"><h3>Export change orders</h3>'+
+        '<div class="field"><label class="lbl">Week</label><select class="in" id="coexWeek">'+wks.map(function(w){ return '<option value="'+w+'"'+(w===wk?' selected':'')+'>Week of '+esc(weekLabel(w))+'</option>'; }).join('')+'</select></div>'+
+        '<div class="row-2"><button class="btn btn-sm" style="flex:1" data-action="x_coexpick" data-w="all">All</button><button class="btn btn-sm" style="flex:1" data-action="x_coexpick" data-w="open">Open only</button><button class="btn btn-sm" style="flex:1" data-action="x_coexpick" data-w="none">None</button></div>'+
+        '<div class="cpdf-list">';
+      items.forEach(function(it){ var co=it.co, c=self.coCalc(co);
+        h+='<label class="cpdf-row"><input type="checkbox" class="coex-ck" data-co="'+esc(co.id)+'"'+(sel[co.id]?' checked':'')+'>'+
+          '<span class="cpdf-main"><b>'+esc(co.num||"")+'</b> '+self._coStatusBadge(co.status)+' '+(c.total==null?'':money(c.total))+'<br><span class="cpdf-txt">'+esc(self._roomLabel(it.room))+' · '+esc(longDate(co.date))+'</span></span></label>';
+      });
+      if(!items.length) h+='<div class="empty">Nothing that week.</div>';
+      h+='</div>'+
+        '<label class="cpdf-row" style="margin-top:8px;align-items:center"><input type="checkbox" id="coexPh"'+(m.photos!==false?' checked':'')+'><span class="cpdf-main">Include photos</span></label>'+
+        '<label class="cpdf-row" style="align-items:center"><input type="checkbox" id="coexSub"'+(m.markSub!==false?' checked':'')+'><span class="cpdf-main">Mark open ones as submitted after export</span></label>'+
+        '<div id="coexStatus" class="small muted" style="margin-top:6px">'+(m.busy?'Working&hellip;':Object.keys(sel).filter(function(k){return sel[k];}).length+' selected')+'</div>'+
+        (m.msg?'<div class="msg '+esc(m.msg.t)+'">'+esc(m.msg.m)+'</div>':'')+
+        '<button class="btn btn-primary btn-block" style="margin-top:8px" data-action="x_coexgen"'+(m.busy?' disabled':'')+'>'+(m.busy?'Generating&hellip;':'Generate PDF')+'</button>'+
+        '<button class="btn btn-block btn-sm" style="margin-top:8px" data-action="closemodal">Cancel</button></div>';
+      return h;
+    },
+    modalExt:function(m){
+      if(m.type==="x_coform") return this._coFormHtml(m);
+      if(m.type==="x_coview") return this._coViewHtml(m);
+      if(m.type==="x_coexport") return this._coExportHtml(m);
+      return '<div class="modal" data-stop="1"><button class="btn btn-block" data-action="closemodal">Close</button></div>';
+    },
+    _coExSel:function(m, which){
+      var items=this.coList().filter(function(it){ return weekStart(it.co.date)===m.wk; }); var sel={};
+      items.forEach(function(it){ var s=it.co.status||"open"; if(which==="all"||(which==="open"&&s==="open")) sel[it.co.id]=true; });
+      m.sel=sel;
+    },
+    _coSaveRoom:function(room, logType, text){ Store.saveRoom(room); this.logEvent(logType, text, this.areaS()+" "+room.number); },
+
+    /* ---------- config section ---------- */
+    cfgExtHtml:function(){
+      var out='';
+      if(this.isAdmin()){
+        var d=this._coTierDraft || ((this.config&&this.config.coMarkup&&this.config.coMarkup.tiers)||[]).map(function(t){return {upTo:t.upTo,mult:t.mult};});
+        if(!d.length) d=[{upTo:"",mult:""},{upTo:"",mult:""},{upTo:"",mult:""}];
+        this._coTierDraft=d;
+        out+='<div class="section-label">Change order pricing</div>'+
+          '<div class="small muted" style="margin-bottom:6px">Techs enter material at cost. The PDF bills each item at <b>cost × multiplier</b>, picking the tier by the item’s unit cost. Leave “up to” blank on the last tier for everything above. Field users never see billed prices.</div>'+
+          '<div class="field"><label class="lbl">Labor rate ($/hr)</label><input class="in" id="coRateIn" type="number" min="0" step="0.01" value="'+esc(String((this.config&&this.config.coRate)||DEFAULT_RATE))+'"></div>';
+        d.forEach(function(t,i){
+          out+='<div class="row-2" style="gap:6px;align-items:center;margin-top:6px"><span class="small" style="flex:0 0 auto">Unit cost up to $</span>'+
+            '<input class="in co-tmax" data-i="'+i+'" type="number" min="0" step="0.01" placeholder="'+(i===d.length-1?'(and above)':'e.g. 50')+'" value="'+esc(String(t.upTo==null?"":t.upTo))+'">'+
+            '<span class="small" style="flex:0 0 auto">×</span><input class="in co-tmul" data-i="'+i+'" type="number" min="0" step="0.01" placeholder="e.g. 1.5" value="'+esc(String(t.mult==null?"":t.mult))+'">'+
+            '<button class="icon-btn danger" data-action="x_cotierdel" data-i="'+i+'">&times;</button></div>';
+        });
+        out+='<div class="row-2" style="margin-top:8px"><button class="btn btn-sm" data-action="x_cotieradd">+ Add tier</button>'+
+          '<button class="btn btn-sm btn-primary" data-action="x_cosave">Save pricing</button></div>';
+        var tiers=this.coTiers();
+        if(tiers.length){ var self=this; out+='<div class="small muted" style="margin-top:6px">Check: '+[5,25,100,400].map(function(c){ var m=self.coMult(c); return money(c)+' → '+money(c*m); }).join(' · ')+'</div>'; }
+        else out+='<div class="ix-flag" style="margin-top:6px">&#9873; No markup saved yet — change-order PDFs are blocked until it is.</div>';
+      }
+      // install checklist import
+      out+='<div class="section-label">Install checklist from a reference sheet</div>'+
+        '<div class="small muted" style="margin-bottom:6px">For TUSD-style <b>Installation Reference Sheets</b>: open the sheet in Excel, click the top-left corner to select everything, copy, and paste it here. Each in-scope row becomes a '+esc(this.areaS().toLowerCase())+' with its own checklist (exact parts and quantities), the sheet’s warnings, and a pieces-used counter. Re-pasting updates the lists and keeps anything already checked off.</div>'+
+        '<textarea class="in" id="ixPaste" rows="4" placeholder="Paste the whole Installer Reference tab here"></textarea>'+
+        '<button class="btn btn-sm btn-block" style="margin-top:6px" data-action="x_ixpreview">Preview</button>';
+      var pv=this._ixParsed;
+      if(pv){
+        if(!pv.rows.length) out+='<div class="ix-flag" style="margin-top:6px">&#9873; Couldn’t find any in-scope rows. Make sure you copied the whole sheet (including the “Item #” header row).</div>';
+        else {
+          var nFlags=pv.rows.reduce(function(a,r){return a+r.flags.length;},0);
+          var existing={}; this.roomList().forEach(function(r){ if(r.ix&&r.ix.item) existing[r.ix.item]=1; });
+          var upd=pv.rows.filter(function(r){return existing[r.item];}).length;
+          var anyDone=this.roomList().some(function(r){ return r.done && Object.keys(r.done).length; });
+          out+='<div class="ix-prev"><b>'+pv.rows.length+' '+esc(this.areaP().toLowerCase())+'</b> found'+(pv.building?' for '+esc(pv.building):'')+
+            (upd?' — '+upd+' already here will be updated, '+(pv.rows.length-upd)+' new':'')+' · '+nFlags+' sheet warning'+(nFlags===1?'':'s')+
+            (pv.headerOk?'':'<div class="ix-flag">&#9873; Header row not found — double-check the columns line up with the TUSD layout.</div>')+
+            '<div class="ix-list">'+pv.rows.map(function(r){ return '<div>'+esc(r.door?r.door+' – ':'')+esc(r.name)+' <span class="muted">· '+esc(r.fixtures)+'</span>'+(r.flags.length?' <span class="ix-fl">&#9873;'+r.flags.length+'</span>':'')+'</div>'; }).join('')+'</div>'+
+            '<label class="toggle" style="margin-top:6px"><input type="checkbox" id="ixReplace"'+(anyDone?'':' checked')+'> Replace this project’s task list with the install phases'+(anyDone?' (work is already checked off here — leave this off unless you’re sure)':'')+'</label>'+
+            '<button class="btn btn-primary btn-block" style="margin-top:6px" data-action="x_iximport">Create '+pv.rows.length+' checklists</button></div>';
+        }
+      }
+      return out;
+    },
+    _readTierInputs:function(){
+      var mx=document.querySelectorAll(".co-tmax"); if(!mx.length) return;
+      var d=[]; for(var i=0;i<mx.length;i++){ var ix=mx[i].getAttribute("data-i"); var mu=document.querySelector('.co-tmul[data-i="'+ix+'"]'); d.push({upTo:mx[i].value, mult:mu?mu.value:""}); }
+      this._coTierDraft=d;
+    },
+
+    /* ---------- events ---------- */
+    handleExt:function(a, t, e){
+      var self=this, m=this.modal;
+      switch(a){
+        case "x_conew": {
+          var u=this.requireEdit(); if(!u) return;
+          var rid=t.getAttribute("data-room") || (this.view==="room"?this.roomId:null) || ((this.roomList()[0]||{}).id);
+          if(!rid){ this.toast("Add a "+this.areaS().toLowerCase()+" first"); return; }
+          this.modal={type:"x_coform", f:{roomId:rid, date:todayISO(), hours:"", desc:"", rate:this.coRate(), mats:[{id:uid("cm"),qty:"",desc:"",cost:""}], photos:[]}, msg:null};
+          this.render(); return;
+        }
+        case "x_coline": if(!m) return; this._coPreserve(); m.f.mats=(m.f.mats||[]); m.f.mats.push({id:uid("cm"),qty:"",desc:"",cost:""}); this.render(); return;
+        case "x_colinedel": if(!m) return; this._coPreserve(); m.f.mats.splice(+t.getAttribute("data-i"),1); if(!m.f.mats.length) m.f.mats.push({id:uid("cm"),qty:"",desc:"",cost:""}); this.render(); return;
+        case "x_cophdel": if(!m) return; this._coPreserve(); (m.f.photos||[]).splice(+t.getAttribute("data-i"),1); this.render(); return;
+        case "x_cosubmit": {
+          var u2=this.requireEdit(); if(!u2||!m) return;
+          if(m.pending){ m.msg={t:"err",m:"Photos are still uploading — one moment."}; this.render(); return; }
+          this._coPreserve(); var f=m.f;
+          var desc=String(f.desc||"").trim(), hrs=r2(num(f.hours));
+          var mats=(f.mats||[]).map(function(x){ return {id:x.id||uid("cm"), qty:num(x.qty)||(String(x.desc||"").trim()?1:0), desc:String(x.desc||"").trim(), cost:r2(num(x.cost))}; }).filter(function(x){ return x.desc; });
+          if(!desc){ m.msg={t:"err",m:"Describe what you did."}; this.render(); return; }
+          if(hrs<=0 && !mats.length){ m.msg={t:"err",m:"Add your labor hours or at least one material line."}; this.render(); return; }
+          var room=this.rooms[m.editId?m.roomId:f.roomId]; if(!room){ m.msg={t:"err",m:"Pick a "+this.areaS().toLowerCase()+"."}; this.render(); return; }
+          room.cos=room.cos||[];
+          if(m.editId){
+            var ex=room.cos.filter(function(c){return c.id===m.editId;})[0]; if(!ex){ this.closeModal(); return; }
+            ex.date=f.date||todayISO(); ex.desc=desc; ex.hours=hrs; ex.mats=mats; ex.photos=f.photos||[]; ex.editedTs=Date.now(); ex.editedBy=u2.name;
+            this._coSaveRoom(room,"co_edit","Edited change order "+ex.num);
+            this.toast("Change order saved");
+            this.modal={type:"x_coview", roomId:room.id, coId:ex.id}; this.render(); return;
+          }
+          var co={id:uid("co"), num:this.coNextNum(), date:f.date||todayISO(), ts:Date.now(), byId:u2.id, byName:u2.name, byCompany:u2.company||"",
+            desc:desc, hours:hrs, rate:this.coRate(), mats:mats, photos:f.photos||[], status:"open"};
+          room.cos.push(co);
+          this._coSaveRoom(room,"co_new","Change order "+co.num+" — "+hrs+" hr"+(mats.length?", "+mats.length+" material line"+(mats.length===1?"":"s"):""));
+          this.toast(co.num+" saved");
+          this.modal={type:"x_coview", roomId:room.id, coId:co.id}; this.render(); return;
+        }
+        case "x_coview": this.modal={type:"x_coview", roomId:t.getAttribute("data-room"), coId:t.getAttribute("data-co")}; this.render(); return;
+        case "x_coedit": {
+          if(!m) return; var fe=this.coFind(m.roomId,m.coId); if(!fe||!this.coCanEdit(fe.co)) return;
+          var c=fe.co;
+          this.modal={type:"x_coform", editId:c.id, roomId:fe.room.id, f:{roomId:fe.room.id, date:c.date, hours:c.hours, desc:c.desc, rate:c.rate, mats:JSON.parse(JSON.stringify(c.mats||[])), photos:JSON.parse(JSON.stringify(c.photos||[]))}, msg:null};
+          if(!this.modal.f.mats.length) this.modal.f.mats=[{id:uid("cm"),qty:"",desc:"",cost:""}];
+          this.render(); return;
+        }
+        case "x_costatus": {
+          if(!m||!this.isManager()) return; var fs=this.coFind(m.roomId,m.coId); if(!fs) return;
+          var ns=t.getAttribute("data-s"); fs.co.status=ns;
+          if(ns==="submitted"){ fs.co.submittedTs=fs.co.submittedTs||Date.now(); }
+          if(ns==="paid"){ fs.co.paidTs=Date.now(); fs.co.submittedTs=fs.co.submittedTs||Date.now(); }
+          if(ns==="open"){ delete fs.co.submittedTs; delete fs.co.paidTs; }
+          this._coSaveRoom(fs.room,"co_status",fs.co.num+" → "+ns); this.render(); return;
+        }
+        case "x_codel": {
+          if(!m) return; var fd=this.coFind(m.roomId,m.coId); if(!fd) return;
+          if(!(this.isManager()||this.coCanEdit(fd.co))) return;
+          if(!confirm("Delete "+fd.co.num+"? This can’t be undone.")) return;
+          fd.room.cos=fd.room.cos.filter(function(c){return c.id!==fd.co.id;});
+          this._coSaveRoom(fd.room,"co_del","Deleted change order "+fd.co.num);
+          this.closeModal(); this.toast("Deleted"); this.render(); return;
+        }
+        case "x_cofilter": this.coFilter=t.getAttribute("data-f"); this.render(); return;
+        case "x_coexport": {
+          if(!this.isManager()) return;
+          var mm={type:"x_coexport", wk:t.getAttribute("data-wk"), sel:{}, photos:true, markSub:true};
+          this._coExSel(mm,"all"); this.modal=mm; this.render(); return;
+        }
+        case "x_coexpick": if(!m) return; this._coExSel(m, t.getAttribute("data-w")); this.render(); return;
+        case "x_coweekstatus": {
+          if(!this.isManager()) return; var wk=t.getAttribute("data-wk"), st=t.getAttribute("data-s");
+          var hit=this.coList().filter(function(it){ return weekStart(it.co.date)===wk && (it.co.status||"open")==="open"; });
+          if(!hit.length) return;
+          if(!confirm("Mark "+hit.length+" change order"+(hit.length===1?"":"s")+" for the week of "+weekLabel(wk)+" as submitted?")) return;
+          var touched={};
+          hit.forEach(function(it){ it.co.status=st; it.co.submittedTs=Date.now(); touched[it.roomId]=it.room; });
+          Object.keys(touched).forEach(function(k){ Store.saveRoom(touched[k]); });
+          this.logEvent("co_status","Marked "+hit.length+" change orders submitted (week of "+weekLabel(wk)+")");
+          this.toast(hit.length+" marked submitted"); this.render(); return;
+        }
+        case "x_coexgen": {
+          if(!m) return; var ids=Object.keys(m.sel||{}).filter(function(k){return m.sel[k];});
+          m.photos=!!(el("coexPh")&&el("coexPh").checked); m.markSub=!!(el("coexSub")&&el("coexSub").checked);
+          if(!ids.length){ m.msg={t:"err",m:"Pick at least one change order."}; this.render(); return; }
+          if(!this.coTiers().length){ m.msg={t:"err",m:"Set the material markup in Config → Change order pricing first."}; this.render(); return; }
+          this.coPdf(ids, {photos:m.photos, wk:m.wk, markSub:m.markSub}); return;
+        }
+        case "x_cotieradd": this._readTierInputs(); (this._coTierDraft=this._coTierDraft||[]).push({upTo:"",mult:""}); this.render(); return;
+        case "x_cotierdel": this._readTierInputs(); this._coTierDraft.splice(+t.getAttribute("data-i"),1); this.render(); return;
+        case "x_cosave": {
+          if(!this.isAdmin()) return; this._readTierInputs();
+          var tiers=[], bad="";
+          (this._coTierDraft||[]).forEach(function(x){
+            var up=String(x.upTo).trim(), mu=String(x.mult).trim();
+            if(up===""&&mu==="") return;
+            if(!(num(mu)>0)){ bad="Each tier needs a multiplier above 0."; return; }
+            tiers.push({upTo:up===""?null:num(up), mult:num(mu)});
+          });
+          var open=tiers.filter(function(x){return x.upTo==null;}).length;
+          if(!bad && tiers.length && open>1) bad="Only the last tier can be open-ended.";
+          if(bad){ this.toast(bad); return; }
+          tiers.sort(function(a,b){ return (a.upTo==null?Infinity:a.upTo)-(b.upTo==null?Infinity:b.upTo); });
+          var rate=num(el("coRateIn")?el("coRateIn").value:DEFAULT_RATE)||DEFAULT_RATE;
+          var cfg=this.config||this.ensureConfig();
+          cfg.coMarkup={tiers:tiers, updatedTs:Date.now()}; cfg.coRate=rate;
+          if(this.cfgDraft){ this.cfgDraft.coMarkup=JSON.parse(JSON.stringify(cfg.coMarkup)); this.cfgDraft.coRate=rate; }
+          this.config=cfg; this._coTierDraft=null;
+          Store.saveProject(cfg).then(function(){ self.logEvent("config","Updated change order pricing ("+tiers.length+" tiers, $"+rate+"/hr)"); self.toast("Pricing saved"); self.render(); });
+          return;
+        }
+        case "x_ixpreview": {
+          var ta=el("ixPaste"); this._ixRaw=ta?ta.value:""; this._ixParsed=parseSheet(this._ixRaw); this.render();
+          var ta2=el("ixPaste"); if(ta2) ta2.value=this._ixRaw; return;
+        }
+        case "x_iximport": {
+          if(!this.isManager()||!this._ixParsed) return;
+          var pv=this._ixParsed, replace=!!(el("ixReplace")&&el("ixReplace").checked);
+          var byItem={}, byNum={}; this.roomList().forEach(function(r){ if(r.ix&&r.ix.item) byItem[r.ix.item]=r; byNum[String(r.number).toLowerCase()]=r; });
+          var order=this.roomList().length, added=0, updated=0;
+          pv.rows.forEach(function(row){
+            var numS=row.door?(row.door+" – "+row.name):row.name;
+            var r=byItem[row.item]||byNum[numS.toLowerCase()];
+            var ix={item:row.item, door:row.door, name:row.name, fixtures:row.fixtures, flags:row.flags, building:row.building};
+            if(r){ r.tasks=ixTasks(row); r.ix=ix; r.used=r.used||{stops:0,supplies:0,ada:0}; Store.saveRoom(r); updated++; }
+            else {
+              Store.saveRoom({id:uid("r"), number:numS, ada:false, order:order++, projectId:self.projectId, done:{}, photos:[], notes:[], schedule:{start:"",target:"",items:[]},
+                tasks:ixTasks(row), ix:ix, used:{stops:0,supplies:0,ada:0}});
+              added++;
+            }
+          });
+          var cfg2=this.config||this.ensureConfig();
+          var tpl=replace?[]:JSON.parse(JSON.stringify(cfg2.template||[]));
+          IX_PHASES.forEach(function(ph){ if(!tpl.some(function(t){return t.id===ph.id;})) tpl.push({id:ph.id,name:ph.name,subs:[]}); });
+          cfg2.template=tpl; if(this.cfgDraft) this.cfgDraft.template=JSON.parse(JSON.stringify(tpl));
+          this.config=cfg2; Store.saveProject(cfg2);
+          this.logEvent("room_add","Install checklist import: "+added+" added, "+updated+" updated");
+          this._ixParsed=null; this._ixRaw="";
+          this.toast(added+" added"+(updated?", "+updated+" updated":""));
+          setTimeout(function(){ self.render(); },60); return;
+        }
+        case "x_ixused": {
+          var u3=this.requireEdit(); if(!u3) return; var rr=this.rooms[this.roomId]; if(!rr) return;
+          var k=t.getAttribute("data-k"), dlt=+t.getAttribute("data-d");
+          rr.used=rr.used||{}; rr.used[k]=Math.max(0,(+rr.used[k]||0)+dlt);
+          var lab=(IX_USED.filter(function(x){return x[0]===k;})[0]||[k,k])[1];
+          this._coSaveRoom(rr,"task_used",(dlt>0?"+1 ":"−1 ")+lab+" (now "+rr.used[k]+")");
+          this.render(); return;
+        }
+      }
+    },
+    handleInputExt:function(e){
+      var t=e.target; if(!this.modal||this.modal.type!=="x_coform") return false;
+      if(t.classList && (t.classList.contains("co-live")||t.classList.contains("co-c")||t.classList.contains("co-q"))){
+        this._coPreserve(); var box=el("coTot"); if(box) box.innerHTML=this._coTotalsHtml(this.modal.f); return true;
+      }
+      return false;
+    },
+    handleChangeExt:function(e){
+      var t=e.target, m=this.modal, self=this;
+      if(t.classList && t.classList.contains("coex-ck") && m && m.type==="x_coexport"){ m.sel=m.sel||{}; m.sel[t.getAttribute("data-co")]=t.checked; var st=el("coexStatus"); if(st) st.textContent=Object.keys(m.sel).filter(function(k){return m.sel[k];}).length+" selected"; return true; }
+      if(t.id==="coexWeek" && m && m.type==="x_coexport"){ m.wk=t.value; this._coExSel(m,"all"); this.render(); return true; }
+      if(t.id==="coPhoto" && m && m.type==="x_coform"){
+        var u=this.requireEdit(); if(!u){ t.value=""; return true; }
+        var files=Array.prototype.slice.call(t.files||[]); if(!files.length) return true;
+        this._coPreserve(); m.pending=(m.pending||0)+files.length;
+        var prog=files.map(function(){return 0;});
+        function paint(){ var s=el("coPhSt"); if(s) s.textContent="Uploading… "+Math.round(prog.reduce(function(a,b){return a+b;},0)/files.length*100)+"%"; }
+        paint();
+        Promise.all(files.map(function(f,i){
+          return Store.uploadPhoto(self.projectId+"/changeorders", f, function(p){ prog[i]=p; paint(); }).then(function(url){
+            var mx=self.modal; if(mx&&mx.f){ (mx.f.photos=mx.f.photos||[]).push({id:uid("p"),url:url,by:u.name,when:new Date().toISOString()}); }
+            prog[i]=1; paint();
+          }).catch(function(err){ console.warn("CO photo failed",err); prog[i]=1; self.toast("A photo didn’t upload — try again"); });
+        })).then(function(){ var mx=self.modal; if(mx){ mx.pending=Math.max(0,(mx.pending||0)-files.length); self._coPreserve(); } self.render(); });
+        t.value=""; return true;
+      }
+      return false;
+    },
+
+    /* ---------- PDF ---------- */
+    coPdf:function(ids, opts){
+      var self=this; opts=opts||{};
+      if(!window.jspdf || !window.jspdf.jsPDF){ this.toast("PDF engine didn't load — hard-refresh and try again"); return; }
+      var items=this.coList().filter(function(it){ return ids.indexOf(it.co.id)!==-1; });
+      items.sort(function(a,b){ if(a.co.date!==b.co.date) return a.co.date<b.co.date?-1:1; return String(a.co.num).localeCompare(String(b.co.num)); });
+      if(this.modal){ this.modal.busy=true; this.render(); }
+      function stat(txt){ var s=el("coexStatus"); if(s) s.textContent=txt; }
+      var doc=new window.jspdf.jsPDF({unit:"pt", format:"letter"});
+      var W=612, MX=42, CW=W-MX*2, y=0, BOT=742;
+      var cfg=this.config||{}, job=cfg.job||{};
+      var jobName=this.projName?this.projName():(job.name||"");
+      function need(h){ if(y+h>BOT){ doc.addPage(); y=50; } }
+      function txt(s,size,bold,col){ doc.setFontSize(size); doc.setFont("helvetica",bold?"bold":"normal"); col=col||[20,24,28]; doc.setTextColor(col[0],col[1],col[2]); }
+      function para(s,size,col,bold,indent){ txt(s,size,bold,col); var ln=doc.splitTextToSize(String(s||""), CW-(indent||0)); ln.forEach(function(l){ need(size+4); doc.text(l, MX+(indent||0), y); y+=size+3.5; }); }
+      var weekTxt=opts.wk?("Week of "+weekLabel(opts.wk)):"";
+      // header
+      doc.setFillColor(27,39,51); doc.rect(0,0,W,34,"F");
+      txt("",13,true,[255,255,255]); doc.text("RG & Sons Plumbing — Change orders", MX, 22);
+      txt("",9,false,[255,255,255]); doc.text(weekTxt, W-MX, 22, {align:"right"});
+      y=58;
+      txt("",15,true); doc.text(jobName||"Project", MX, y); y+=15;
+      var sub=[]; if(job.number) sub.push("Job #"+job.number); if(job.address) sub.push(job.address);
+      txt("",9.5,false,[91,103,115]); if(sub.length){ doc.text(sub.join("  ·  "), MX, y); y+=13; }
+      var T={lab:0,mat:0,tot:0,hrs:0};
+      var calcs=items.map(function(it){ var c=self.coCalc(it.co); T.lab+=c.labor; T.mat+=(c.matSell||0); T.tot+=(c.total||0); T.hrs+=(+it.co.hours||0); return c; });
+      doc.text(items.length+" change order"+(items.length===1?"":"s")+"  ·  "+r2(T.hrs)+" labor hours  ·  Total "+money(T.tot), MX, y); y+=18;
+      // summary table
+      var cols=[{k:"num",w:46,l:"CO #"},{k:"date",w:50,l:"Date"},{k:"room",w:112,l:"Location"},{k:"desc",w:170,l:"Work performed"},{k:"lab",w:50,l:"Labor",r:1},{k:"mat",w:50,l:"Material",r:1},{k:"tot",w:50,l:"Total",r:1}];
+      function thead(){ need(20); doc.setFillColor(61,72,84); doc.rect(MX,y-11,CW,16,"F"); txt("",8,true,[255,255,255]); var x=MX; cols.forEach(function(c){ doc.text(c.l.toUpperCase(), c.r?x+c.w-4:x+4, y, c.r?{align:"right"}:undefined); x+=c.w; }); y+=13; }
+      thead();
+      items.forEach(function(it,i){
+        var c=calcs[i], co=it.co; var d=ymdD(co.date);
+        var vals={num:co.num||"", date:d?((d.getMonth()+1)+"/"+d.getDate()+"/"+String(d.getFullYear()).slice(2)):"", room:self._roomLabel(it.room), desc:co.desc||"", lab:money(c.labor), mat:money(c.matSell||0), tot:money(c.total||0)};
+        txt("",8.5,false);
+        var wrapped={}; var maxL=1;
+        cols.forEach(function(cl){ var ln=doc.splitTextToSize(String(vals[cl.k]), cl.w-8); if(ln.length>3){ ln=ln.slice(0,3); ln[2]=ln[2].replace(/.{0,2}$/,"…"); } wrapped[cl.k]=ln; maxL=Math.max(maxL,ln.length); });
+        var rh=maxL*10.5+5;
+        if(y+rh>BOT){ doc.addPage(); y=50; thead(); }
+        var x=MX; txt("",8.5,false);
+        cols.forEach(function(cl){ wrapped[cl.k].forEach(function(l,li){ doc.text(l, cl.r?x+cl.w-4:x+4, y+li*10.5, cl.r?{align:"right"}:undefined); }); x+=cl.w; });
+        y+=rh-6; doc.setDrawColor(223,226,229); doc.setLineWidth(0.6); doc.line(MX,y,MX+CW,y); y+=11;
+      });
+      need(20); txt("",9,true);
+      var xr=MX+46+50+112+170;
+      doc.text("Totals", xr-4, y, {align:"right"});
+      doc.text(money(T.lab), xr+50-4, y, {align:"right"}); doc.text(money(T.mat), xr+100-4, y, {align:"right"}); doc.text(money(T.tot), xr+150-4, y, {align:"right"});
+      y+=22;
+      // details
+      need(30); txt("",13,true); doc.text("Details", MX, y); y+=8;
+      var chain=Promise.resolve();
+      items.forEach(function(it,i){
+        chain=chain.then(function(){
+          stat("Building "+(i+1)+" of "+items.length+"…");
+          var co=it.co, c=calcs[i];
+          need(70); y+=12; doc.setDrawColor(174,182,189); doc.setLineWidth(0.75); doc.line(MX,y-8,MX+CW,y-8); y+=6;
+          txt("",11.5,true); doc.text((co.num||"")+" — "+self._roomLabel(it.room), MX, y); y+=14;
+          var meta=longDate(co.date)+"  ·  Performed by "+(co.byName||"—")+(co.byCompany?" ("+co.byCompany+")":"");
+          if(it.room.ix&&it.room.ix.door) meta+="  ·  Door "+it.room.ix.door;
+          para(meta,9,[91,103,115]);
+          y+=3; para("Work performed",8.5,[61,72,84],true); para(co.desc||"",10,[20,24,28]);
+          y+=4; need(14); txt("",9.5,false);
+          doc.text("Labor: "+r2(+co.hours||0)+" hr × "+money(c.rate), MX, y); doc.text(money(c.labor), MX+CW, y, {align:"right"}); y+=14;
+          if(c.lines.length){
+            need(30); doc.setFillColor(238,241,243); doc.rect(MX,y-10,CW,14,"F"); txt("",8,true,[61,72,84]);
+            doc.text("QTY", MX+4, y); doc.text("MATERIAL", MX+44, y); doc.text("UNIT PRICE", MX+CW-84, y, {align:"right"}); doc.text("AMOUNT", MX+CW-4, y, {align:"right"}); y+=13;
+            c.lines.forEach(function(l){
+              txt("",9.5,false); var ln=doc.splitTextToSize(String(l.desc||""), CW-44-150);
+              need(ln.length*11+4);
+              doc.text(String(l.qty), MX+4, y); ln.forEach(function(s2,k){ doc.text(s2, MX+44, y+k*11); });
+              doc.text(money(l.unit), MX+CW-84, y, {align:"right"}); doc.text(money(l.ext), MX+CW-4, y, {align:"right"});
+              y+=ln.length*11+3;
+            });
+            need(14); txt("",9.5,false); doc.text("Material", MX+CW-84, y, {align:"right"}); doc.text(money(c.matSell), MX+CW-4, y, {align:"right"}); y+=13;
+          }
+          need(16); txt("",10.5,true); doc.text("Change order total", MX+CW-84, y, {align:"right"}); doc.text(money(c.total), MX+CW-4, y, {align:"right"}); y+=10;
+          var phs=(opts.photos!==false)?(co.photos||[]).slice(0,6):[];
+          if(!phs.length) return;
+          return Promise.all(phs.map(function(p){ return self._pdfImg(p.url, 700); })).then(function(imgs){
+            imgs=imgs.filter(Boolean); if(!imgs.length) return;
+            var tw=(CW-16)/3; y+=8;
+            for(var k=0;k<imgs.length;k+=3){
+              var row=imgs.slice(k,k+3), rh=0;
+              row.forEach(function(im){ rh=Math.max(rh, Math.min(tw*im.h/im.w, 170)); });
+              need(rh+8);
+              row.forEach(function(im,j){ var h=Math.min(tw*im.h/im.w,170), w=h*im.w/im.h; try{ doc.addImage(im.data,"JPEG",MX+j*(tw+8),y,w,h); }catch(e){} });
+              y+=rh+8;
+            }
+          }).catch(function(){ para("(photos couldn't be loaded)",8.5,[91,103,115]); });
+        });
+      });
+      chain.then(function(){
+        var n=doc.getNumberOfPages();
+        for(var p=1;p<=n;p++){ doc.setPage(p); txt("",8,false,[139,151,163]); doc.text((jobName||"")+(weekTxt?"  ·  "+weekTxt:"")+"  ·  Prepared "+new Date().toLocaleDateString(), MX, 770); doc.text("Page "+p+" of "+n, W-MX, 770, {align:"right"}); }
+        var fn="change-orders-"+String(jobName||"job").replace(/[^\w]+/g,"-").replace(/^-|-$/g,"").toLowerCase()+"-"+(opts.wk||todayISO())+".pdf";
+        doc.save(fn);
+        var marked=0;
+        if(opts.markSub){
+          var touched={};
+          items.forEach(function(it){ if((it.co.status||"open")==="open"){ it.co.status="submitted"; it.co.submittedTs=Date.now(); touched[it.roomId]=it.room; marked++; } });
+          Object.keys(touched).forEach(function(k){ Store.saveRoom(touched[k]); });
+        }
+        self.logEvent("co_export","Exported "+items.length+" change orders to PDF"+(weekTxt?" ("+weekTxt+")":"")+(marked?" — "+marked+" marked submitted":""));
+        if(self.modal){ self.modal.busy=false; self.modal.msg={t:"ok",m:"PDF downloaded"+(marked?" — "+marked+" marked submitted":"")+"."}; }
+        self.render();
+      }).catch(function(err){
+        console.warn("CO pdf failed",err);
+        if(self.modal){ self.modal.busy=false; self.modal.msg={t:"err",m:"PDF failed: "+((err&&err.message)||err)}; }
+        self.render();
+      });
+    }
+  };
+  for(var k in X){ if(Object.prototype.hasOwnProperty.call(X,k)) App[k]=X[k]; }
+  App._ixParse=parseSheet; // exposed for testing / console use
+})();
 </script>
 </body>
 </html>
