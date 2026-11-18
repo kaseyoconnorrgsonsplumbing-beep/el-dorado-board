@@ -4585,6 +4585,7 @@ var App = {
       mrow("materials","Materials"+(mnc?' <span style="background:var(--error);color:#fff;border-radius:9px;font-size:10px;font-weight:800;padding:1px 7px;margin-left:4px">'+mnc+' new</span>':""),mi('<path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z"/><path d="M4 7.5 L12 12 L20 7.5"/><path d="M12 12V21"/>'));
       var coN=this.coList?this.coList().filter(function(c){return c.status==="open";}).length:0;
       mrow("changeorders","Change orders"+(coN?' <span style="background:var(--steel);color:#fff;border-radius:9px;font-size:10px;font-weight:800;padding:1px 7px;margin-left:4px">'+coN+' open</span>':""),mi('<path d="M6 3h9l3 3v15H6z"/><path d="M9 10h6M9 14h6M9 18h4"/>'));
+      mrows+='<a class="btn btn-block more-row" style="margin-top:8px;text-align:left;display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit" href="howto.html">'+mi('<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/>')+'How-to videos</a>';
       if(this.drawingsList().length||this.isManager()) mrow("drawings","Drawings",mi('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 14l4-4 5 5 3-3 4 4"/>'));
       mrow("labels","QR labels",mi('<rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><path d="M13 13h3v3h-3zM17 17h3v3h-3z"/>'));
       if(this.isManager()) mrow("log","Activity log",mi('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'));
@@ -6080,7 +6081,7 @@ if(document.readyState!=="loading"){ App.start(); }
     renderRoomCOs:function(room){
       var self=this, list=this.coList().filter(function(it){ return it.roomId===room.id; });
       var out='<button class="btn btn-primary btn-block" style="margin-top:10px" data-action="x_conew" data-room="'+esc(room.id)+'">+ Create change order</button>'+
-        '<div class="small muted" style="margin:6px 0 4px">Extra work in this '+esc(this.areaS().toLowerCase())+' that isn’t on the checklist — what you did, your hours, and the material you used at your cost.</div>';
+        '<div class="small muted" style="margin:6px 0 4px">Extra work in this '+esc(this.areaS().toLowerCase())+' that isn’t on the checklist — what you did, your hours, and the material you used at your cost. <a href="howto.html#change-orders" style="color:var(--accent);font-weight:700">&#9654; Watch how (2 min)</a></div>';
       if(!list.length) return out+'<div class="empty">No change orders for this '+esc(this.areaS().toLowerCase())+' yet.</div>';
       list.forEach(function(it){ out+=self._coCard(it); });
       return out;
@@ -6092,6 +6093,7 @@ if(document.readyState!=="loading"){ App.start(); }
       var list=all.filter(function(it){ return f==="all" || (it.co.status||"open")===f; });
       var out='<div class="wrap">';
       out+='<button class="btn btn-primary btn-block" data-action="x_conew">+ New change order</button>';
+      out+='<a class="btn btn-block btn-sm" style="margin-top:8px;display:block;text-align:center;text-decoration:none;color:inherit" href="howto.html#change-orders">&#9654; How-to video (2 min)</a>';
       if(!u) out+='<div class="small muted" style="margin:6px 0">Log in to add change orders.</div>';
       else if(!mgr) out+='<div class="small muted" style="margin:6px 0">These are the change orders you’ve entered. The office prices and submits them each week.</div>';
       if(mgr && !this.coTiers().length) out+='<div class="ix-flag" style="margin-top:8px">&#9873; Material markup isn’t set yet, so billed totals can’t be figured. Office: Config → Change order pricing.</div>';
